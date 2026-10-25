@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "name": "Coffee line (illustrative)",
+  "origin": {
+    "x": 0,
+    "y": 0
+  },
+  "appliances": [
+    {
+      "id": "a1",
+      "type": "CoffeeMachine",
+      "x": 1,
+      "y": 2,
+      "rotation": 90,
+      "state": {}
+    },
+    {
+      "id": "a2",
+      "type": "Grabber",
+      "x": 2,
+      "y": 2,
+      "rotation": 90,
+      "state": {}
+    },
+    {
+      "id": "a3",
+      "type": "CoffeeMachine",
+      "x": 3,
+      "y": 2,
+      "rotation": 0,
+      "state": {}
+    },
+    {
+      "id": "a4",
+      "type": "SmartGrabber",
+      "x": 4,
+      "y": 2,
+      "rotation": 90,
+      "state": {
+        "filter": "Coffee"
+      }
+    }
+  ]
+}
