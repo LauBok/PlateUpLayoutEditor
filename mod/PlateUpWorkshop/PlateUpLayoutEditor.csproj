@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>PlateUpLayoutEditor-Workshop</AssemblyName>
+    <PlateUpGameFolder Condition="'$(PlateUpGameFolder)' == ''">C:\Program Files (x86)\Steam\steamapps\common\PlateUp\PlateUp</PlateUpGameFolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Yariazen.PlateUp.ModBuildUtilities" Version="1.6.16" />
+    <Reference Include="KitchenLib">
+      <HintPath>$(PlateUpGameFolder)\Mods\KitchenLib\content\KitchenLib-Workshop.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Target Name="CopyWorkshopDll" AfterTargets="Build">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\content" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\content" />
+  </Target>
+</Project>
