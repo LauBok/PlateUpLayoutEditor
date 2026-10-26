@@ -36,8 +36,9 @@ behaviour. Use a disposable solo save for the first test.
 4. Optional: open `editor/index.html` in a browser, import an exported restaurant (its floor plan and
    walls are shown), edit, export, and copy the file into the folder above. "Write catalog.json" in
    game produces the exact appliance list (including modded appliances) for the browser editor, and
-   "Export thumbnails" renders every appliance model to `thumbnails.json`; import that file once
-   in the browser editor to see pictures instead of coloured name tiles (it is remembered).
+   "Export thumbnails" renders every appliance model straight from above (one tile, like the
+   restaurant seen from above in game) to `thumbnails.json`; import that file once in the browser
+   editor and the plan is drawn with those pictures, rotated to each appliance's facing (remembered).
 
 ### Rules applied in game
 - Only tiles inside the restaurant, not the front door tile. Immovable appliances are never removed.

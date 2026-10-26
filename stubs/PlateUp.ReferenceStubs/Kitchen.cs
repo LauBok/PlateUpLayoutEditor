@@ -229,19 +229,6 @@ namespace Kitchen
         protected void ApplyUpdates(CLinkedView view, Action<TResp> act, bool only_final_update = false) => throw null;
     }
 
-    // Game snapshot helper; usage from DecorOnDemand Utils/PrefabSnapshotUtils.cs (GetApplianceSnapshot).
-    public class SnapshotTexture
-    {
-        public Texture2D Snapshot;
-        public SnapshotTexture(Texture2D texture, float width, float height) { Snapshot = texture; }
-    }
-
-    public static class Snapshot
-    {
-        public static SnapshotTexture RenderPrefabToTexture(int pixel_width, int pixel_height, GameObject prefab, Quaternion rotation,
-            float target_width, float target_height, float near = -10f, float far = 10f, float scale = 1f, Vector3 offset = default) => throw null;
-    }
-
     public class LocalViewRouter
     {
         protected virtual GameObject GetPrefab(ViewType view_type) => throw null;

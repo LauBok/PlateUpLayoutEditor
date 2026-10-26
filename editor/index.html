@@ -170,13 +170,13 @@ function render() {
     let color;
     if (floor.size) {
       const t = floor.get(x + ',' + y);
-      color = !t || t.room === 0 ? '#161e27' : (t.placeable ? ((x + y) % 2 ? '#2f4152' : '#2a3a4a') : '#3a2f2f');
-    } else color = (x + y) % 2 ? '#2f4152' : '#2a3a4a';
+      color = !t || t.room === 0 ? '#2c3a2a' : roomColor(t.room, (x + y) % 2, t.placeable);
+    } else color = roomColor(1, (x + y) % 2, true);
     ctx.fillStyle = color; ctx.fillRect(px, py, cell, cell);
-    ctx.strokeStyle = '#3d4f63'; ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, cell - 1, cell - 1);
+    ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, cell - 1, cell - 1);
   }
   // walls
-  ctx.strokeStyle = '#d9e2ec'; ctx.lineWidth = 3;
+  ctx.strokeStyle = '#3b3f4a'; ctx.lineWidth = Math.max(4, cell * 0.14); ctx.lineCap = 'round';
   for (const w of doc.walls || []) {
     const [px, py] = toCanvas(w.x, w.y);
     ctx.beginPath();
@@ -185,7 +185,7 @@ function render() {
     ctx.stroke();
   }
   // axis labels
-  ctx.fillStyle = 'rgba(159,176,194,.55)'; ctx.font = '9px system-ui';
+  ctx.fillStyle = 'rgba(40,50,60,.55)'; ctx.font = '9px system-ui';
   for (let x = grid.minX; x <= grid.maxX; x++) { const [px] = toCanvas(x, grid.minY); ctx.fillText(x, px + 2, rows() * cell - 2); }
   for (let y = grid.minY; y <= grid.maxY; y++) { const [, py] = toCanvas(grid.minX, y); ctx.fillText(y, 2, py + 10); }
   // appliances (floor layer first)
@@ -218,20 +218,25 @@ function drawAppliance(a, mode) {
   const img = thumbs.get(a.applianceId || (entry && entry.id));
   const cat = categoryOf(entry ? entry.code + ' ' + entry.name : a.type);
   // tile background: category colour (or a light plate behind a thumbnail)
-  ctx.fillStyle = img ? 'rgba(232,237,243,.16)' : cat.color;
-  roundRect(px + inset, py + inset, size, size, Math.max(3, cell * 0.12)); ctx.fill();
+  const cx = px + cell / 2, cy = py + cell / 2;
   if (img) {
-    const pad = cell * 0.04;
-    ctx.drawImage(img, px + inset + pad, py + inset + pad, size - 2 * pad, size - 2 * pad);
+    // Top-down render of one tile, picture up = appliance forward: rotate it to the facing.
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate((a.rotation || 0) * Math.PI / 180);
+    ctx.drawImage(img, -cell / 2, -cell / 2, cell, cell);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = cat.color;
+    roundRect(px + inset, py + inset, size, size, Math.max(3, cell * 0.12)); ctx.fill();
   }
   if (mode === 'ghost' || mode === 'bad') {
     ctx.fillStyle = mode === 'ghost' ? 'rgba(90,220,255,.45)' : 'rgba(255,80,80,.55)';
     roundRect(px + inset, py + inset, size, size, Math.max(3, cell * 0.12)); ctx.fill();
   }
   if (mode === 'sel') { ctx.strokeStyle = '#ffc35a'; ctx.lineWidth = 3; roundRect(px + 2, py + 2, cell - 4, cell - 4, Math.max(3, cell * 0.12)); ctx.stroke(); }
-  // facing arrow on the tile edge the appliance faces
-  const cx = px + cell / 2, cy = py + cell / 2, ah = Math.max(5, cell * 0.14);
+  // facing arrow on the tile edge the appliance faces (the picture already shows it)
+  const ah = Math.max(5, cell * 0.14);
   ctx.save(); ctx.translate(cx, cy); ctx.rotate((a.rotation || 0) * Math.PI / 180);
+  if (img && mode !== 'sel') ctx.globalAlpha = 0;
   ctx.fillStyle = '#ffcb6b'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, -cell / 2 + 1); ctx.lineTo(-ah * 0.8, -cell / 2 + 1 + ah); ctx.lineTo(ah * 0.8, -cell / 2 + 1 + ah); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
@@ -243,8 +248,8 @@ function drawAppliance(a, mode) {
   if (a.state && a.state.specificType) {   // smart filter set
     ctx.fillStyle = '#7dffa0'; ctx.beginPath(); ctx.arc(px + cell - inset - 5, py + inset + 5, 3.5, 0, 7); ctx.fill();
   }
-  if ($('labels').checked && (!img || cell >= 56)) drawLabel(nameOf(a), px, py, !!img);
-  else if (!img) drawLabel(nameOf(a), px, py, false);
+  if (!img) drawLabel(nameOf(a), px, py, false);
+  else if ($('labels').checked) drawLabel(nameOf(a), px, py, true);
 }
 function drawLabel(name, px, py, overImage) {
   const font = Math.max(8, Math.min(13, Math.round(cell / 5.2)));
@@ -268,6 +273,13 @@ function wrap(text, width, maxLines) {
   if (cur) lines.push(cur);
   if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] += '…'; }
   return lines.map((l) => { while (l.length > 2 && ctx.measureText(l).width > width) l = l.slice(0, -2) + '…'; return l; });
+}
+// Light floor tiles like the restaurant floor in game; each room gets its own tint.
+const ROOM_TINTS = [[216, 208, 190], [196, 210, 214], [214, 198, 204], [204, 214, 192], [220, 210, 176]];
+function roomColor(room, odd, placeable) {
+  const [r, g, b] = ROOM_TINTS[Math.abs(room) % ROOM_TINTS.length];
+  const k = (odd ? 0.93 : 1) * (placeable ? 1 : 0.7);
+  return 'rgb(' + Math.round(r * k) + ',' + Math.round(g * k) + ',' + Math.round(b * k) + ')';
 }
 function roundRect(x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -600,7 +612,10 @@ function loadThumbnails(images) {
     img.onerror = () => resolve(false);
     img.src = url;
   }));
-  return Promise.all(jobs).then((r) => { renderPalette(); render(); return r.filter(Boolean).length; });
+  return Promise.all(jobs).then((r) => {
+    if (thumbs.size) $('labels').checked = false;
+    renderPalette(); render(); return r.filter(Boolean).length;
+  });
 }
 function openIconDb() {
   return new Promise((resolve, reject) => {
