@@ -2,10 +2,12 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
+    <NoWarn>CS0114</NoWarn>
     <AssemblyName>PlateUpLayoutEditor-Workshop</AssemblyName>
     <PlateUpGameFolder Condition="'$(PlateUpGameFolder)' == ''">C:\Program Files (x86)\Steam\steamapps\common\PlateUp\PlateUp</PlateUpGameFolder>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="MessagePack.Annotations" Version="2.4.59" />
     <PackageReference Include="Yariazen.PlateUp.ModBuildUtilities" Version="1.6.16" />
     <Reference Include="KitchenLib">
       <HintPath>$(PlateUpGameFolder)\Mods\KitchenLib\content\KitchenLib-Workshop.dll</HintPath>
