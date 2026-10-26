@@ -17,7 +17,9 @@ namespace KitchenLayoutEditor
         /// <summary>Move (and optionally rotate) the appliances in a region, keeping their entities.</summary>
         Move,
         /// <summary>Restore the snapshot taken before the last apply/delete/move.</summary>
-        Undo
+        Undo,
+        /// <summary>Change grabber settings in a region (direction, smart filter) without practice mode.</summary>
+        Configure
     }
 
     /// <summary>A request from any player's editor window to the host. Sent as JSON inside the view response.</summary>
@@ -42,6 +44,13 @@ namespace KitchenLayoutEditor
         /// <summary>Move offset.</summary>
         [JsonProperty("dx")] public int Dx { get; set; }
         [JsonProperty("dy")] public int Dy { get; set; }
+
+        /// <summary>Configure: settings to write (only the fields that are set).</summary>
+        [JsonProperty("settings", NullValueHandling = NullValueHandling.Ignore)] public ApplianceState? Settings { get; set; }
+        /// <summary>Configure: use the item the requesting player holds as the smart grabber filter.</summary>
+        [JsonProperty("filterFromHeld")] public bool FilterFromHeldItem { get; set; }
+        /// <summary>Configure: remove the smart grabber filter.</summary>
+        [JsonProperty("clearFilter")] public bool ClearFilter { get; set; }
 
         /// <summary>Allow edits outside the preparation phase.</summary>
         [JsonProperty("allowDuringDay")] public bool AllowDuringDay { get; set; }

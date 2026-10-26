@@ -43,6 +43,8 @@ namespace KitchenData
         public bool GetProperty<T>(out T result) where T : IApplianceProperty => throw null;
     }
 
+    public class Item : GameDataObject { }
+
     public class GameData
     {
         public static GameData Main => throw null;
@@ -53,6 +55,7 @@ namespace KitchenData
 
     public struct ItemList
     {
+        public ItemList(int item) => throw null;
         public int Count => throw null;
         public int this[int index] => throw null;
         public void Add(int item) => throw null;
@@ -152,6 +155,9 @@ namespace Kitchen
         public float Progress;
         public ConveyState State;
     }
+
+    public struct CItem : IComponentData { public int ID; public ItemList Items; public bool IsPartial; public bool IsTransient; public bool IsGroup; }
+    public struct CPlayer : IComponentData { public int ID; public int InputSource; }
 
     public struct CConveyPushRotatable : IComponentData, IApplianceProperty { public Orientation Target; }
 

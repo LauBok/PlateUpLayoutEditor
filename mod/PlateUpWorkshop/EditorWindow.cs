@@ -14,8 +14,8 @@ namespace KitchenLayoutEditor
     /// </summary>
     public class EditorWindow : MonoBehaviour
     {
-        private enum Tab { Place, Selection, Files, Options }
-        private enum Tool { None, Place, Delete, Rotate, Select, Paste, MoveTarget }
+        private enum Tab { Place, Selection, Grabbers, Files, Options }
+        private enum Tool { None, Place, Delete, Rotate, Select, Paste, MoveTarget, PickGrabber, PasteSettings }
 
         private const int WindowId = 0x4C45;
         private Rect _window = new Rect(20, 60, 380, 560);
@@ -53,6 +53,14 @@ namespace KitchenLayoutEditor
         private readonly List<string> _log = new List<string>();
 
         private TileOverlay? _overlay;
+
+        // Grabbers tab: target tile, its current settings, copied settings and the item picker
+        private (int x, int y)? _grabberTile;
+        private ApplianceRecord? _grabberInfo;
+        private ApplianceState? _copiedSettings;
+        private bool _grabberUseSelection;
+        private string _itemSearch = "";
+        private Vector2 _itemScroll;
 
         private void Update()
         {
@@ -124,6 +132,11 @@ namespace KitchenLayoutEditor
                 case Tool.Delete: Send(new LayoutCommand { Kind = CommandKind.Delete, Region = new GridRect(x, y, x, y) }); break;
                 case Tool.Rotate: Send(new LayoutCommand { Kind = CommandKind.Rotate, Region = new GridRect(x, y, x, y), QuarterTurns = 1 }); break;
                 case Tool.Paste: PasteAt(x, y); break;
+                case Tool.PickGrabber: PickGrabber(x, y); break;
+                case Tool.PasteSettings:
+                    if (_copiedSettings != null)
+                        Send(new LayoutCommand { Kind = CommandKind.Configure, Region = new GridRect(x, y, x, y), Settings = _copiedSettings.Clone(), ClearFilter = CopiedFilterIsEmpty() });
+                    break;
                 case Tool.MoveTarget:
                     if (_selection != null)
                     {
@@ -349,6 +362,8 @@ namespace KitchenLayoutEditor
                 case Tool.Place: return ApplianceCatalog.DisplayName(_selectedAppliance) + " " + _rotation + "°" + at + "  R/scroll rotate";
                 case Tool.Paste: return "Paste x" + (_pasteTurns * 90) + "°" + at + "  R/scroll rotate";
                 case Tool.MoveTarget: return "Move selection to" + at;
+                case Tool.PickGrabber: return "Click a grabber" + at;
+                case Tool.PasteSettings: return "Paste grabber settings" + at;
                 default: return _tool + at;
             }
         }
@@ -366,6 +381,7 @@ namespace KitchenLayoutEditor
                 case Tab.Place: DrawPlace(); break;
                 case Tab.Selection: DrawSelection(); break;
                 case Tab.Files: DrawFiles(); break;
+                case Tab.Grabbers: DrawGrabbers(); break;
                 case Tab.Options: DrawOptions(); break;
             }
 
@@ -497,6 +513,127 @@ namespace KitchenLayoutEditor
             if (GUILayout.Button("Apply as whole restaurant (removes everything else)")) ApplyFile(_selectedFile, true);
             if (GUILayout.Button("Apply at saved positions (merge)")) ApplyFile(_selectedFile, false);
             if (GUILayout.Button("Paste as module (click a tile, R rotates)")) LoadFileToClipboard(_selectedFile);
+        }
+
+        // ----- Grabber settings (no practice mode needed) -----
+
+        private void PickGrabber(int x, int y)
+        {
+            _grabberTile = (x, y);
+            _grabberInfo = null;
+            _grabberUseSelection = false;
+            _tab = Tab.Grabbers;
+            SetTool(Tool.None);
+            ReadGrabber();
+        }
+
+        /// <summary>Reads the current settings of the target tile through a one-tile export.</summary>
+        private void ReadGrabber()
+        {
+            if (_grabberTile == null) return;
+            var (x, y) = _grabberTile.Value;
+            Send(new LayoutCommand { Kind = CommandKind.Export, Region = new GridRect(x, y, x, y) }, r =>
+            {
+                if (!r.Ok || r.LayoutJson == null) return;
+                try { _grabberInfo = LayoutJson.Parse(r.LayoutJson).Appliances.FirstOrDefault(a => a.Layer == null); }
+                catch (LayoutFormatException) { _grabberInfo = null; }
+            });
+        }
+
+        private GridRect? GrabberTarget()
+        {
+            if (_grabberUseSelection) return _selection;
+            if (_grabberTile == null) return null;
+            var (x, y) = _grabberTile.Value;
+            return new GridRect(x, y, x, y);
+        }
+
+        private void Configure(Action<LayoutCommand> fill)
+        {
+            var region = GrabberTarget();
+            if (region == null) { Log("Click a grabber first (or select an area)"); return; }
+            var command = new LayoutCommand { Kind = CommandKind.Configure, Region = region };
+            fill(command);
+            Send(command, r => { if (r.Ok && !_grabberUseSelection) ReadGrabber(); });
+        }
+
+        private void DrawGrabbers()
+        {
+            GUILayout.Label("Set grabbers during preparation - no practice mode needed.");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Toggle(_tool == Tool.PickGrabber, "Click a grabber", "Button") && _tool != Tool.PickGrabber) SetTool(Tool.PickGrabber);
+            GUI.enabled = _selection != null;
+            _grabberUseSelection = GUILayout.Toggle(_grabberUseSelection && _selection != null, "All in selection", "Button");
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+
+            if (_grabberUseSelection) GUILayout.Label("Target: every grabber in the selection");
+            else if (_grabberTile == null) { GUILayout.Label("Target: none"); }
+            else
+            {
+                var (x, y) = _grabberTile.Value;
+                string what = _grabberInfo == null ? "(empty or reading...)" : ApplianceCatalog.DisplayName(_grabberInfo.ApplianceId);
+                GUILayout.Label("Target: " + what + " at " + x + "," + y);
+                var st = _grabberInfo?.State;
+                if (st?.GrabDirection != null) GUILayout.Label("Grabs from: " + DirectionLabel(st.GrabDirection));
+                if (st?.GrabSpecificType == true)
+                    GUILayout.Label("Filter: " + (st.SpecificType is int f ? ItemCatalog.DisplayName(f) : "none (takes the first item it sees)"));
+            }
+
+            GUILayout.Label("Rotating grabber - grab from:");
+            GUILayout.BeginHorizontal();
+            foreach (var dir in new[] { "Left", "Up", "Right" })
+                if (GUILayout.Button(DirectionLabel(dir))) Configure(c => c.Settings = new ApplianceState { GrabDirection = dir });
+            GUILayout.EndHorizontal();
+
+            GUILayout.Label("Smart grabber filter:");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Use the item I'm holding")) Configure(c => c.FilterFromHeldItem = true);
+            if (GUILayout.Button("Clear filter")) Configure(c => c.ClearFilter = true);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Item", GUILayout.Width(35));
+            _itemSearch = GUILayout.TextField(_itemSearch);
+            GUILayout.EndHorizontal();
+            if (_itemSearch.Trim().Length >= 2)
+            {
+                _itemScroll = GUILayout.BeginScrollView(_itemScroll, GUILayout.Height(110));
+                var words = _itemSearch.Trim().Split(' ');
+                int shown = 0;
+                foreach (var item in ItemCatalog.Entries)
+                {
+                    if (!words.All(w => item.Name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
+                    if (GUILayout.Button(item.Name)) Configure(c => c.Settings = new ApplianceState { SpecificType = item.Id });
+                    if (++shown >= 40) break;
+                }
+                GUILayout.EndScrollView();
+                GUILayout.Label("For finished dishes (several ingredients) prefer 'Use the item I'm holding'.");
+            }
+
+            GUILayout.BeginHorizontal();
+            GUI.enabled = _grabberInfo?.State != null;
+            if (GUILayout.Button("Copy settings")) { _copiedSettings = _grabberInfo!.State!.Clone(); Log("Copied grabber settings"); }
+            GUI.enabled = _copiedSettings != null;
+            if (GUILayout.Toggle(_tool == Tool.PasteSettings, "Paste on click", "Button") && _tool != Tool.PasteSettings) SetTool(Tool.PasteSettings);
+            if (GUILayout.Button("Paste to selection") && _selection != null)
+                Send(new LayoutCommand { Kind = CommandKind.Configure, Region = _selection, Settings = _copiedSettings!.Clone(), ClearFilter = CopiedFilterIsEmpty() });
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>Copied from a smart grabber that has no filter: pasting clears filters too.</summary>
+        private bool CopiedFilterIsEmpty() => _copiedSettings != null && _copiedSettings.GrabSpecificType == true && _copiedSettings.SpecificType == null;
+
+        private static string DirectionLabel(string direction)
+        {
+            switch (direction)
+            {
+                case "Left": return "Left";
+                case "Right": return "Right";
+                case "Up": return "Straight";
+                default: return direction;
+            }
         }
 
         private void DrawOptions()

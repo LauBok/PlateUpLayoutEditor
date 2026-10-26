@@ -29,6 +29,10 @@ behaviour. Use a disposable solo save for the first test.
      copies, deletes, rotates each appliance or the whole block, moves it by an offset or to a clicked
      corner (entities are moved, so items on counters and grabber settings stay), or saves it as a module.
    - **Paste** places the clipboard/module at the clicked tile with R to rotate.
+   - **Grabbers** (no practice mode needed, works during preparation): click a grabber, then set a
+     rotating grabber's grab side (left / straight / right) or a smart grabber's filter - from the item
+     you are holding (exactly what the grabber would learn), from an item list, or cleared. Settings can
+     be copied and pasted onto other grabbers, or applied to every grabber in the selection.
    - **Files**: export the restaurant, apply a layout as the whole restaurant (everything else is
      removed) or merged at its saved positions, or paste a module. **Undo** reverts the last 10 changes.
    - Files live in `%USERPROFILE%\AppData\LocalLow\It's Happening\PlateUp\LayoutEditor` (the game's

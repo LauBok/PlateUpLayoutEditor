@@ -35,6 +35,7 @@ namespace KitchenLayoutEditor
         private readonly List<PendingSpawn> _pending = new List<PendingSpawn>();
         private readonly List<string> _undo = new List<string>();
         private EntityQuery _appliances;
+        private EntityQuery _players;
 
         /// <summary>Most recent results, newest last. Read by the view system to broadcast.</summary>
         internal static IReadOnlyList<LayoutResult> RecentResults => Results;
@@ -49,6 +50,7 @@ namespace KitchenLayoutEditor
         {
             base.Initialise();
             _appliances = GetEntityQuery(new QueryHelper().All(typeof(CAppliance), typeof(CPosition)));
+            _players = GetEntityQuery(new QueryHelper().All(typeof(CPlayer), typeof(CItemHolder)));
         }
 
         protected override void OnUpdate()
@@ -92,6 +94,7 @@ namespace KitchenLayoutEditor
                 case CommandKind.Rotate: RotateInPlace(input, command); break;
                 case CommandKind.Move: Move(input, command); break;
                 case CommandKind.Undo: Undo(input, command); break;
+                case CommandKind.Configure: Configure(input, command); break;
                 default: Respond(input, command, false, "Unknown command"); break;
             }
         }
@@ -393,6 +396,74 @@ namespace KitchenLayoutEditor
                 RefreshView(entity);
             }
             Respond(input, command, true, "Moved " + moving.Count + " appliances");
+        }
+
+        /// <summary>
+        /// Writes grabber settings directly, so nobody has to run practice mode to teach a smart grabber
+        /// or turn a rotating grabber. A smart grabber normally learns the ID and component list of the
+        /// first item it grabs (CItem.ID / CItem.Items, see UrFriendKen's SmartGrabberPullBugFix); the
+        /// "held item" option copies exactly those two values.
+        /// </summary>
+        private void Configure(int input, LayoutCommand command)
+        {
+            if (command.Region == null) { Respond(input, command, false, "No tile or selection"); return; }
+            int filterItem = 0;
+            List<int>? filterComponents = null;
+            if (command.FilterFromHeldItem)
+            {
+                if (!TryGetHeldItem(input, out var item))
+                {
+                    Respond(input, command, false, "Hold the item you want the smart grabber to take, then try again.");
+                    return;
+                }
+                filterItem = item.ID;
+                filterComponents = new List<int>();
+                for (int i = 0; i < item.Items.Count; i++) filterComponents.Add(item.Items[i]);
+            }
+            else if (command.Settings?.SpecificType is int chosen && chosen != 0)
+            {
+                filterItem = chosen;
+                // A freshly created plain item carries itself as its only component (KitchenLib EntityUtils.CreateItem).
+                filterComponents = command.Settings.SpecificComponents ?? new List<int> { chosen };
+            }
+
+            var live = Snapshot();
+            var targets = live.Where(l => command.Region.Contains(l.Info.X, l.Info.Y)).ToList();
+            int filters = 0, directions = 0;
+            foreach (var t in targets)
+            {
+                if (command.Settings?.GrabDirection != null &&
+                    ApplianceStateCodec.SetGrabDirection(EntityManager, t.Entity, command.Settings.GrabDirection)) directions++;
+                if (command.ClearFilter && ApplianceStateCodec.SetFilter(EntityManager, t.Entity, 0, new int[0])) filters++;
+                else if (filterComponents != null && ApplianceStateCodec.SetFilter(EntityManager, t.Entity, filterItem, filterComponents)) filters++;
+            }
+            if (filters + directions == 0)
+            {
+                Respond(input, command, false, "No smart grabber / rotating grabber in the selection");
+                return;
+            }
+            PushUndo(live);   // "live" was captured before the changes above
+            var parts = new List<string>();
+            if (filters > 0) parts.Add((command.ClearFilter ? "cleared the filter of " : "set the filter of ") + filters + " smart grabber(s)" +
+                                       (filterItem != 0 ? " to " + ItemCatalog.DisplayName(filterItem) : ""));
+            if (directions > 0) parts.Add("turned " + directions + " rotating grabber(s) to " + command.Settings!.GrabDirection);
+            Respond(input, command, true, char.ToUpper(parts[0][0]) + string.Join(", ", parts).Substring(1));
+        }
+
+        private bool TryGetHeldItem(int input, out CItem item)
+        {
+            item = default;
+            using (var entities = _players.ToEntityArray(Allocator.Temp))
+            {
+                foreach (var player in entities)
+                {
+                    var info = EntityManager.GetComponentData<CPlayer>(player);
+                    if (info.InputSource != input) continue;
+                    var holder = EntityManager.GetComponentData<CItemHolder>(player);
+                    if (holder.HeldItem != default(Entity) && Require(holder.HeldItem, out item)) return true;
+                }
+            }
+            return false;
         }
 
         private void Undo(int input, LayoutCommand command)

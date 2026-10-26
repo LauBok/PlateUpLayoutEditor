@@ -40,6 +40,30 @@ namespace KitchenLayoutEditor
             return state.IsEmpty ? null : state;
         }
 
+        /// <summary>Sets the smart grabber filter; returns false when the appliance is not a smart grabber.</summary>
+        public static bool SetFilter(EntityManager em, Entity entity, int itemId, IEnumerable<int> components)
+        {
+            if (!em.HasComponent<CConveyPushItems>(entity)) return false;
+            var push = em.GetComponentData<CConveyPushItems>(entity);
+            if (!push.GrabSpecificType) return false;
+            push.SpecificType = itemId;
+            var list = new ItemList();
+            foreach (var id in components) list.Add(id);
+            push.SpecificComponents = list;
+            em.SetComponentData(entity, push);
+            return true;
+        }
+
+        /// <summary>Sets a rotating grabber's grab direction; returns false when not applicable.</summary>
+        public static bool SetGrabDirection(EntityManager em, Entity entity, string direction)
+        {
+            if (!em.HasComponent<CConveyPushRotatable>(entity) || !Enum.TryParse(direction, out Orientation orientation)) return false;
+            var rotatable = em.GetComponentData<CConveyPushRotatable>(entity);
+            rotatable.Target = orientation;
+            em.SetComponentData(entity, rotatable);
+            return true;
+        }
+
         /// <summary>Applies the saved state where the live appliance supports it. Never upgrades an appliance
         /// (for example a plain grabber is not turned into a smart one).</summary>
         public static void Restore(EntityManager em, Entity entity, ApplianceState? state)
@@ -52,19 +76,10 @@ namespace KitchenLayoutEditor
                 rotatable.Target = orientation;
                 em.SetComponentData(entity, rotatable);
             }
-            if (state.SpecificType != null && em.HasComponent<CConveyPushItems>(entity))
-            {
-                var push = em.GetComponentData<CConveyPushItems>(entity);
-                if (push.GrabSpecificType)
-                {
-                    push.SpecificType = state.SpecificType.Value;
-                    var components = new ItemList();
-                    if (state.SpecificComponents != null)
-                        foreach (var id in state.SpecificComponents) components.Add(id);
-                    push.SpecificComponents = components;
-                    em.SetComponentData(entity, push);
-                }
-            }
+            if (state.SpecificType != null)
+                SetFilter(em, entity, state.SpecificType.Value, state.SpecificComponents ?? new List<int>());
+            else if (state.GrabSpecificType == true)
+                SetFilter(em, entity, 0, new int[0]);   // saved as "smart grabber without a filter"
         }
     }
 }

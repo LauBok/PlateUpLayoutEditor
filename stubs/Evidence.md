@@ -26,6 +26,9 @@ against the real PlateUp! assemblies and use each API the same way. "UFK" = gith
 | `ResponsiveObjectView`, `ResponsiveViewSystemBase`, `SendUpdate`, `ApplyUpdates`, `IViewData.ICheckForChanges`, `IResponseData`, `CLinkedView`, `CRequiresView{ViewMode.Screen}`, `CPersistThroughSceneChanges`, `CDoNotPersist`, `InputSourceIdentifier.Identifier` | DecorOnDemand `SpawnRequestView.cs`; DragNDropDesigner `Views/MouseInputView.cs` |
 | Harmony prefix on `LocalViewRouter.GetPrefab(ViewType view_type)` for a custom view type | DecorOnDemand `Patches/LocalViewRouter_Patch.cs` |
 | Thumbnail camera: "Snapshot Camera" layer, orthographic camera, `_NightFade` shader global (plain Unity API otherwise) | DecorOnDemand `Utils/SnapshotUtils.cs`, `Utils/PrefabSnapshotUtils.cs` |
+| Smart grabber learns `CItem.ID` + `CItem.Items` as `SpecificType` / `SpecificComponents` | UFK/PlateUpSmartGrabberPullBugFix `ReplaceMisgrabbedItem.cs` |
+| A plain item has itself as its only component: `new ItemList(id)`; `GameData.Main.Get<Item>()` | KitchenLib `Utils/EntityUtils.cs` (`CreateItem`); DecorOnDemand |
+| `CPlayer.InputSource`, player `CItemHolder` | DecorOnDemand `SpawnHandlerSystem.cs`; DragNDropDesigner `MousePickUpAndDropAppliance.cs` |
 | Harmony comes from the "Harmony" Workshop mod | OndrejNepozitek/KitchenDesigner `MissingDependenciesGUIManager.cs` |
 
 Exact member types that are not visible from usage (for example whether `EntityQuery` is a class
