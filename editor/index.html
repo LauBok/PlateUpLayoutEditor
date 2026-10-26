@@ -46,6 +46,7 @@ textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);borde
   <section class="panel">
     <h3>Appliances</h3>
     <input id="search" placeholder="Search…" style="width:100%">
+    <label class="muted" style="display:block;margin-top:6px"><input type="checkbox" id="showAll"> Show all (incl. internal / event items)</label>
     <div id="palette" role="listbox" aria-label="Appliance catalog"></div>
     <p><small id="catalogInfo"></small></p>
   </section>
@@ -62,7 +63,7 @@ textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);borde
       <button id="undo" title="Ctrl+Z">Undo</button>
       <button id="redo" title="Ctrl+Y">Redo</button>
       <label class="muted">Zoom <select id="zoom"><option>36</option><option>44</option><option selected>56</option><option>72</option><option>96</option></select></label>
-      <label class="muted"><input type="checkbox" id="labels" checked> Names</label>
+      <label class="muted"><input type="checkbox" id="labels"> Names</label>
     </div>
     <div id="stage"><canvas id="grid" aria-label="Layout grid"></canvas></div>
     <div id="status" role="status"></div>
@@ -79,6 +80,7 @@ textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);borde
   </section>
 </div>
 <script src="catalog.js"></script>
+<script src="planner-images.js"></script>
 <script src="editor-core.js"></script>
 <script>
 (() => {
@@ -112,7 +114,10 @@ function indexCatalog() {
   byId = new Map(catalog.map((e) => [e.id, e]));
   byCode = new Map(catalog.map((e) => [String(e.code).toLowerCase(), e]));
 }
-const nameOf = (a) => (byId.get(a.applianceId) || byCode.get(String(a.type).toLowerCase()) || {}).name || a.type || ('#' + a.applianceId);
+const nameOf = (a) => {
+  const e = byId.get(a.applianceId) || byCode.get(String(a.type).toLowerCase());
+  return (e && (plannerNameFor(e) || e.name)) || a.type || ('#' + a.applianceId);
+};
 const notice = (t) => { $('status').textContent = t; };
 const at = (x, y, layer) => doc.appliances.find((a) => a.x === x && a.y === y && C.layerOf(a) === (layer || 'Default'));
 const topAt = (x, y) => at(x, y) || doc.appliances.find((a) => a.x === x && a.y === y);
@@ -215,7 +220,7 @@ function drawAppliance(a, mode) {
   const floorLayer = C.layerOf(a) !== 'Default';
   const inset = floorLayer ? 1 : Math.max(2, Math.round(cell * 0.06));
   const size = cell - 2 * inset;
-  const img = thumbs.get(a.applianceId || (entry && entry.id));
+  const img = pictureFor(a, entry);
   const cat = categoryOf(entry ? entry.code + ' ' + entry.name : a.type);
   // tile background: category colour (or a light plate behind a thumbnail)
   const cx = px + cell / 2, cy = py + cell / 2;
@@ -308,13 +313,16 @@ function renderPalette() {
   const words = $('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const list = $('palette'); list.innerHTML = '';
   for (const e of catalog) {
-    const hay = (e.name + ' ' + e.code).toLowerCase();
+    const hay = (e.name + ' ' + e.code + ' ' + (plannerNameFor(e) || '')).toLowerCase();
     if (!words.every((w) => hay.includes(w))) continue;
+    // Default list: the ~160 buildable appliances that have a PlateUp! Planner picture.
+    if (!$('showAll').checked && !thumbUrls[e.id] && !plannerUrlFor(e, null)) continue;
     const d = document.createElement('div');
     const sw = document.createElement('span'); sw.className = 'sw';
-    if (thumbUrls[e.id]) sw.style.backgroundImage = 'url(' + thumbUrls[e.id] + ')';
+    const picUrl = thumbUrls[e.id] || plannerUrlFor(e, null);
+    if (picUrl) sw.style.backgroundImage = 'url("' + picUrl + '")';
     else { const c = categoryOf(e.code + ' ' + e.name); sw.style.backgroundColor = c.color; sw.textContent = c.glyph; }
-    const label = document.createElement('span'); label.textContent = e.name;
+    const label = document.createElement('span'); label.textContent = plannerNameFor(e) || e.name;
     d.append(sw, label); d.title = e.code + ' (' + e.id + ')';
     d.setAttribute('role', 'option');
     if (e.id === paletteId) d.className = 'on';
@@ -322,7 +330,8 @@ function renderPalette() {
     list.append(d);
   }
   $('catalogInfo').textContent = catalog.length + ' appliances from ' + catalogSource + '. ' +
-    (thumbs.size ? thumbs.size + ' thumbnails loaded.' : 'No thumbnails yet: in game press F7 → Files → "Export thumbnails", then Import… thumbnails.json here.');
+    (thumbs.size ? thumbs.size + ' game thumbnails loaded. ' : '') +
+    'Pictures: PlateUp! Planner (plateupplanner.github.io), loaded online.';
 }
 
 // ---------- inspector ----------
@@ -583,6 +592,7 @@ $('delete').onclick = deleteSelection;
 $('undo').onclick = () => { if (!undoStack.length) return; redoStack.push(JSON.stringify(doc)); restore(undoStack.pop()); };
 $('redo').onclick = () => { if (!redoStack.length) return; undoStack.push(JSON.stringify(doc)); restore(redoStack.pop()); };
 $('search').oninput = renderPalette;
+$('showAll').onchange = renderPalette;
 document.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
@@ -602,6 +612,47 @@ document.addEventListener('keydown', (e) => {
     if (moveSelection(d[0], d[1])) e.preventDefault();
   }
 });
+
+// ---------- pictures from PlateUp! Planner (loaded online, not stored in this repository) ----------
+const PLANNER = globalThis.PLANNER_IMAGES || { base: '', entries: [] };
+const normName = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const plannerByCode = new Map(), plannerByName = new Map(), plannerCorner = {};
+for (const p of PLANNER.entries) {
+  if (p.grabDirection) { plannerCorner[p.grabDirection] = p; continue; }
+  for (const c of p.codes) plannerByCode.set(c, p);
+  plannerByName.set(normName(p.name), p);
+}
+function plannerUrlFor(entry, record) {
+  if (!entry || !PLANNER.base) return null;
+  let p = plannerByCode.get(entry.code) || plannerByName.get(normName(entry.name));
+  if (entry.code === 'GrabberRotatable' && record && record.state && plannerCorner[record.state.grabDirection])
+    p = plannerCorner[record.state.grabDirection];
+  return p ? PLANNER.base + p.img : null;
+}
+const remote = new Map();          // url -> { img, ok }
+let redrawQueued = false;
+function remoteImage(url) {
+  let r = remote.get(url);
+  if (!r) {
+    r = { img: new Image(), ok: false };
+    r.img.onload = () => { r.ok = true; if (!redrawQueued) { redrawQueued = true; requestAnimationFrame(() => { redrawQueued = false; render(); }); } };
+    r.img.src = url;
+    remote.set(url, r);
+  }
+  return r.ok ? r.img : null;
+}
+/** The friendlier in-game name used by PlateUp! Planner (e.g. "Smart Grabber" for GrabberSmart). */
+function plannerNameFor(entry) {
+  const p = plannerByCode.get(entry.code);
+  return p ? p.name : null;
+}
+/** Game-exported thumbnail first, then the PlateUp! Planner picture; null = draw a coloured tile. */
+function pictureFor(a, entry) {
+  const own = thumbs.get(a.applianceId || (entry && entry.id));
+  if (own) return own;
+  const url = plannerUrlFor(entry, a);
+  return url ? remoteImage(url) : null;
+}
 
 // ---------- thumbnails ----------
 function loadThumbnails(images) {
