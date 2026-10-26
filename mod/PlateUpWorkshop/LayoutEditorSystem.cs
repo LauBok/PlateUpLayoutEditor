@@ -432,8 +432,8 @@ namespace KitchenLayoutEditor
             int filters = 0, directions = 0;
             foreach (var t in targets)
             {
-                if (command.Settings?.GrabDirection != null &&
-                    ApplianceStateCodec.SetGrabDirection(EntityManager, t.Entity, command.Settings.GrabDirection)) directions++;
+                if (command.Settings?.PushDirection != null &&
+                    ApplianceStateCodec.SetPushDirection(EntityManager, t.Entity, command.Settings.PushDirection)) directions++;
                 if (command.ClearFilter && ApplianceStateCodec.SetFilter(EntityManager, t.Entity, 0, new int[0])) filters++;
                 else if (filterComponents != null && ApplianceStateCodec.SetFilter(EntityManager, t.Entity, filterItem, filterComponents)) filters++;
             }
@@ -446,7 +446,7 @@ namespace KitchenLayoutEditor
             var parts = new List<string>();
             if (filters > 0) parts.Add((command.ClearFilter ? "cleared the filter of " : "set the filter of ") + filters + " smart grabber(s)" +
                                        (filterItem != 0 ? " to " + ItemCatalog.DisplayName(filterItem) : ""));
-            if (directions > 0) parts.Add("turned " + directions + " rotating grabber(s) to " + command.Settings!.GrabDirection);
+            if (directions > 0) parts.Add("turned " + directions + " rotating grabber(s) to " + command.Settings!.PushDirection);
             Respond(input, command, true, char.ToUpper(parts[0][0]) + string.Join(", ", parts).Substring(1));
         }
 

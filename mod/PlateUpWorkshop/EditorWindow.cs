@@ -575,15 +575,15 @@ namespace KitchenLayoutEditor
                 string what = _grabberInfo == null ? "(empty or reading...)" : ApplianceCatalog.DisplayName(_grabberInfo.ApplianceId);
                 GUILayout.Label("Target: " + what + " at " + x + "," + y);
                 var st = _grabberInfo?.State;
-                if (st?.GrabDirection != null) GUILayout.Label("Grabs from: " + DirectionLabel(st.GrabDirection));
+                if (st?.PushDirection != null) GUILayout.Label("Pushes to: " + DirectionLabel(st.PushDirection));
                 if (st?.GrabSpecificType == true)
                     GUILayout.Label("Filter: " + (st.SpecificType is int f ? ItemCatalog.DisplayName(f) : "none (takes the first item it sees)"));
             }
 
-            GUILayout.Label("Rotating grabber - grab from:");
+            GUILayout.Label("Rotating grabber - pushes to (tip: Ping key on it also turns it):");
             GUILayout.BeginHorizontal();
             foreach (var dir in new[] { "Left", "Up", "Right" })
-                if (GUILayout.Button(DirectionLabel(dir))) Configure(c => c.Settings = new ApplianceState { GrabDirection = dir });
+                if (GUILayout.Button(DirectionLabel(dir))) Configure(c => c.Settings = new ApplianceState { PushDirection = dir });
             GUILayout.EndHorizontal();
 
             GUILayout.Label("Smart grabber filter:");
@@ -648,6 +648,7 @@ namespace KitchenLayoutEditor
             changed |= Toggle(ref s.RestoreState, "Restore grabber directions / smart filters");
             changed |= Toggle(ref s.AllowDuringDay, "Allow changes during the day (may confuse customers)");
             changed |= Toggle(ref s.AllowClients, "Host: let other players use the editor");
+            changed |= Toggle(ref s.PingRotatesGrabbers, "Ping on a rotating grabber during preparation turns it");
             GUILayout.BeginHorizontal();
             GUILayout.Label("Toggle key", GUILayout.Width(80));
             var key = GUILayout.TextField(s.ToggleKey);

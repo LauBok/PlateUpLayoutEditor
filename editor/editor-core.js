@@ -113,7 +113,8 @@
   function cleanState(state) {
     if (!state || typeof state !== 'object') return null;
     const s = {};
-    if (['Up', 'Down', 'Left', 'Right'].includes(state.grabDirection)) s.grabDirection = state.grabDirection;
+    const push = state.pushDirection || state.grabDirection;   // "grabDirection" = early name of this field
+    if (['Up', 'Left', 'Right'].includes(push)) s.pushDirection = push;
     if (typeof state.grabSpecificType === 'boolean') s.grabSpecificType = state.grabSpecificType;
     if (Number.isInteger(state.specificType) && state.specificType !== 0) s.specificType = state.specificType;
     if (Array.isArray(state.specificComponents)) s.specificComponents = state.specificComponents.filter(Number.isInteger);

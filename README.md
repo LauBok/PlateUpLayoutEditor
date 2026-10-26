@@ -30,7 +30,7 @@ behaviour. Use a disposable solo save for the first test.
      corner (entities are moved, so items on counters and grabber settings stay), or saves it as a module.
    - **Paste** places the clipboard/module at the clicked tile with R to rotate.
    - **Grabbers** (no practice mode needed, works during preparation): click a grabber, then set a
-     rotating grabber's grab side (left / straight / right) or a smart grabber's filter - from the item
+     rotating grabber's output side (left / straight / right; pressing the Ping key on it during preparation also turns it, like Interact does during the day) or a smart grabber's filter - from the item
      you are holding (exactly what the grabber would learn), from an item list, or cleared. Settings can
      be copied and pasted onto other grabbers, or applied to every grabber in the selection.
    - **Files**: export the restaurant, apply a layout as the whole restaurant (everything else is

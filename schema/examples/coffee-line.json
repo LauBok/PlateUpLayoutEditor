@@ -13,6 +13,6 @@
     { "id": "a5", "applianceId": -1248669347, "type": "Countertop", "x": 4, "y": 0, "rotation": 0 },
     { "id": "a6", "applianceId": -1609758240, "type": "CoffeeMachine", "x": 0, "y": 1, "rotation": 0 },
     { "id": "a7", "applianceId": -331651461, "type": "GrabberRotatable", "x": 1, "y": 1, "rotation": 90,
-      "state": { "grabDirection": "Down" } }
+      "state": { "pushDirection": "Down" } }
   ]
 }

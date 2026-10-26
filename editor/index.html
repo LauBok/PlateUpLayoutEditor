@@ -245,8 +245,8 @@ function drawAppliance(a, mode) {
   ctx.fillStyle = '#ffcb6b'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, -cell / 2 + 1); ctx.lineTo(-ah * 0.8, -cell / 2 + 1 + ah); ctx.lineTo(ah * 0.8, -cell / 2 + 1 + ah); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
-  if (a.state && a.state.grabDirection) {
-    const rel = { Up: 0, Right: 90, Down: 180, Left: 270 }[a.state.grabDirection] || 0;
+  if (a.state && a.state.pushDirection) {
+    const rel = { Up: 0, Right: 90, Down: 180, Left: 270 }[a.state.pushDirection] || 0;
     ctx.save(); ctx.translate(cx, cy); ctx.rotate((a.rotation + rel) * Math.PI / 180);
     ctx.strokeStyle = '#7dffa0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -cell / 2 + ah + 2); ctx.stroke(); ctx.restore();
   }
@@ -355,13 +355,13 @@ function renderInspector() {
   rot.querySelector('select').value = String(a.rotation);
   rot.querySelector('select').onchange = (e) => { remember(); a.rotation = +e.target.value; render(); };
   const st = a.state || {};
-  const gd = add('<label>Grab from</label><select id="insGrab"><option value="">(default)</option><option>Up</option><option>Right</option><option>Down</option><option>Left</option></select>');
-  gd.querySelector('select').value = st.grabDirection || '';
-  gd.querySelector('select').onchange = (e) => { remember(); setState(a, 'grabDirection', e.target.value || undefined); };
+  const gd = add('<label>Pushes to</label><select id="insGrab"><option value="">(default)</option><option value="Left">Left</option><option value="Up">Straight</option><option value="Right">Right</option></select>');
+  gd.querySelector('select').value = st.pushDirection || '';
+  gd.querySelector('select').onchange = (e) => { remember(); setState(a, 'pushDirection', e.target.value || undefined); };
   const sf = add('<label>Smart filter</label><input id="insFilter" type="number" placeholder="item id" style="width:110px">');
   sf.querySelector('input').value = st.specificType || '';
   sf.querySelector('input').onchange = (e) => { remember(); const v = parseInt(e.target.value, 10); setState(a, 'specificType', Number.isInteger(v) && v ? v : undefined); };
-  add('<small>Grab direction applies to rotating grabbers; the smart filter applies to smart grabbers (item id from an exported layout). Other appliances ignore these values.</small>');
+  add('<small>'Pushes to' is the output side of a rotating grabber (it always grabs from behind); the smart filter applies to smart grabbers (item id from an exported layout). Other appliances ignore these values.</small>');
 }
 function setState(a, key, value) {
   const s = { ...(a.state || {}) };
@@ -618,15 +618,15 @@ const PLANNER = globalThis.PLANNER_IMAGES || { base: '', entries: [] };
 const normName = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const plannerByCode = new Map(), plannerByName = new Map(), plannerCorner = {};
 for (const p of PLANNER.entries) {
-  if (p.grabDirection) { plannerCorner[p.grabDirection] = p; continue; }
+  if (p.pushDirection) { plannerCorner[p.pushDirection] = p; continue; }
   for (const c of p.codes) plannerByCode.set(c, p);
   plannerByName.set(normName(p.name), p);
 }
 function plannerUrlFor(entry, record) {
   if (!entry || !PLANNER.base) return null;
   let p = plannerByCode.get(entry.code) || plannerByName.get(normName(entry.name));
-  if (entry.code === 'GrabberRotatable' && record && record.state && plannerCorner[record.state.grabDirection])
-    p = plannerCorner[record.state.grabDirection];
+  if (entry.code === 'GrabberRotatable' && record && record.state && plannerCorner[record.state.pushDirection])
+    p = plannerCorner[record.state.pushDirection];
   return p ? PLANNER.base + p.img : null;
 }
 const remote = new Map();          // url -> { img, ok }

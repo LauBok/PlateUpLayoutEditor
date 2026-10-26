@@ -14,6 +14,8 @@ namespace KitchenLayoutEditor
         [JsonProperty("conflicts")] public ConflictPolicy Conflicts { get; set; } = ConflictPolicy.Replace;
         [JsonProperty("restoreState")] public bool RestoreState = true;
         [JsonProperty("allowDuringDay")] public bool AllowDuringDay;
+        /// <summary>Ping on a rotating grabber during preparation turns its output (turn off if another mod does it).</summary>
+        [JsonProperty("pingRotatesGrabbers")] public bool PingRotatesGrabbers = true;
         [JsonProperty("toggleKey")] public string ToggleKey { get; set; } = "F7";
 
         public static EditorSettings Current { get; private set; } = new EditorSettings();

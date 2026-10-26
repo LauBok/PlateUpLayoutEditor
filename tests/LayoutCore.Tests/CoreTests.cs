@@ -27,11 +27,11 @@ namespace LayoutCore.Tests
         public void RoundTripsJson()
         {
             var doc = new LayoutDocument { Name = "x", Appliances = { R("a1", 5, 1, 2, 90) } };
-            doc.Appliances[0].State = new ApplianceState { GrabDirection = "Left", SpecificType = 7, SpecificComponents = new List<int> { 1, 2 } };
+            doc.Appliances[0].State = new ApplianceState { PushDirection = "Left", SpecificType = 7, SpecificComponents = new List<int> { 1, 2 } };
             var parsed = LayoutJson.Parse(LayoutJson.Serialize(doc));
             Assert.Equal(5, parsed.Appliances[0].ApplianceId);
             Assert.Equal(90, parsed.Appliances[0].Rotation);
-            Assert.Equal("Left", parsed.Appliances[0].State!.GrabDirection);
+            Assert.Equal("Left", parsed.Appliances[0].State!.PushDirection);
             Assert.Equal(new[] { 1, 2 }, parsed.Appliances[0].State!.SpecificComponents);
         }
 
@@ -43,6 +43,16 @@ namespace LayoutCore.Tests
             Assert.Equal(2, doc.Version);
             Assert.Equal("Counter", doc.Appliances[0].Type);
             Assert.Equal(0, doc.Appliances[0].ApplianceId);
+        }
+
+        [Fact]
+        public void ReadsLegacyGrabDirectionAsPushDirection()
+        {
+            var json = "{\"version\":2,\"appliances\":[{\"id\":\"a\",\"applianceId\":1,\"x\":0,\"y\":0,\"rotation\":0,\"state\":{\"grabDirection\":\"Left\"}}]}";
+            var doc = LayoutJson.Parse(json);
+            Assert.Equal("Left", doc.Appliances[0].State!.PushDirection);
+            Assert.Contains("\"pushDirection\": \"Left\"", LayoutJson.Serialize(doc));
+            Assert.DoesNotContain("grabDirection", LayoutJson.Serialize(doc));
         }
 
         [Fact]

@@ -49,7 +49,8 @@
           "state": {
             "type": "object",
             "properties": {
-              "grabDirection": { "enum": ["Up", "Down", "Left", "Right"], "description": "Rotating grabber target, relative to the appliance" },
+              "pushDirection": { "enum": ["Left", "Up", "Right"], "description": "Rotating grabber output side relative to the appliance (Up = straight). It always grabs from behind." },
+              "grabDirection": { "enum": ["Left", "Up", "Right"], "description": "Deprecated name of pushDirection" },
               "grabSpecificType": { "type": "boolean" },
               "specificType": { "type": "integer", "description": "Smart grabber filter item ID" },
               "specificComponents": { "type": "array", "items": { "type": "integer" } }

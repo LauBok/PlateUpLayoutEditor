@@ -67,8 +67,13 @@ namespace PlateUpLayoutEditor.Core
     /// </summary>
     public sealed class ApplianceState
     {
-        /// <summary>Rotating grabber target (CConveyPushRotatable.Target), relative to the appliance facing.</summary>
-        [JsonProperty("grabDirection", NullValueHandling = NullValueHandling.Ignore)] public string? GrabDirection { get; set; }
+        /// <summary>Rotating grabber output side (CConveyPushRotatable.Target: Left / Up = straight / Right),
+        /// relative to the appliance facing. The grabber always takes items from behind.</summary>
+        [JsonProperty("pushDirection", NullValueHandling = NullValueHandling.Ignore)] public string? PushDirection { get; set; }
+
+        /// <summary>Early files called this field "grabDirection"; read it as the push direction.</summary>
+        [JsonProperty("grabDirection", NullValueHandling = NullValueHandling.Ignore)]
+        private string? LegacyGrabDirection { get => null; set { if (value != null) PushDirection = value; } }
         /// <summary>Smart grabber filter enabled (CConveyPushItems.GrabSpecificType).</summary>
         [JsonProperty("grabSpecificType", NullValueHandling = NullValueHandling.Ignore)] public bool? GrabSpecificType { get; set; }
         /// <summary>Smart grabber filter item (CConveyPushItems.SpecificType).</summary>
@@ -77,11 +82,11 @@ namespace PlateUpLayoutEditor.Core
         [JsonProperty("specificComponents", NullValueHandling = NullValueHandling.Ignore)] public List<int>? SpecificComponents { get; set; }
 
         [JsonIgnore]
-        public bool IsEmpty => GrabDirection == null && GrabSpecificType == null && SpecificType == null && SpecificComponents == null;
+        public bool IsEmpty => PushDirection == null && GrabSpecificType == null && SpecificType == null && SpecificComponents == null;
 
         public ApplianceState Clone() => new ApplianceState
         {
-            GrabDirection = GrabDirection,
+            PushDirection = PushDirection,
             GrabSpecificType = GrabSpecificType,
             SpecificType = SpecificType,
             SpecificComponents = SpecificComponents == null ? null : new List<int>(SpecificComponents)
@@ -91,7 +96,7 @@ namespace PlateUpLayoutEditor.Core
         {
             if (a == null || a.IsEmpty) return b == null || b.IsEmpty;
             if (b == null) return a.IsEmpty;
-            if (a.GrabDirection != b.GrabDirection || a.GrabSpecificType != b.GrabSpecificType || a.SpecificType != b.SpecificType)
+            if (a.PushDirection != b.PushDirection || a.GrabSpecificType != b.GrabSpecificType || a.SpecificType != b.SpecificType)
                 return false;
             var ac = a.SpecificComponents ?? new List<int>();
             var bc = b.SpecificComponents ?? new List<int>();

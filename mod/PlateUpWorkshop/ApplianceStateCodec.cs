@@ -20,7 +20,7 @@ namespace KitchenLayoutEditor
             if (em.HasComponent<CConveyPushRotatable>(entity))
             {
                 var rotatable = em.GetComponentData<CConveyPushRotatable>(entity);
-                state.GrabDirection = rotatable.Target.ToString();
+                state.PushDirection = rotatable.Target.ToString();
             }
             if (em.HasComponent<CConveyPushItems>(entity))
             {
@@ -55,7 +55,7 @@ namespace KitchenLayoutEditor
         }
 
         /// <summary>Sets a rotating grabber's grab direction; returns false when not applicable.</summary>
-        public static bool SetGrabDirection(EntityManager em, Entity entity, string direction)
+        public static bool SetPushDirection(EntityManager em, Entity entity, string direction)
         {
             if (!em.HasComponent<CConveyPushRotatable>(entity) || !Enum.TryParse(direction, out Orientation orientation)) return false;
             var rotatable = em.GetComponentData<CConveyPushRotatable>(entity);
@@ -69,8 +69,8 @@ namespace KitchenLayoutEditor
         public static void Restore(EntityManager em, Entity entity, ApplianceState? state)
         {
             if (state == null) return;
-            if (state.GrabDirection != null && em.HasComponent<CConveyPushRotatable>(entity) &&
-                Enum.TryParse(state.GrabDirection, out Orientation orientation))
+            if (state.PushDirection != null && em.HasComponent<CConveyPushRotatable>(entity) &&
+                Enum.TryParse(state.PushDirection, out Orientation orientation))
             {
                 var rotatable = em.GetComponentData<CConveyPushRotatable>(entity);
                 rotatable.Target = orientation;

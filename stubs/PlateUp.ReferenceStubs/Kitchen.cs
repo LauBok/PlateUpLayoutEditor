@@ -235,6 +235,34 @@ namespace Kitchen
         protected void ApplyUpdates(CLinkedView view, Action<TResp> act, bool only_final_update = false) => throw null;
     }
 
+    // ---- Interaction systems (AutomationPlus InteractRotatePushDuringNight.cs, SuperCrane ApplianceInteractRotatePush.cs) ----
+    public struct SIsNightTime : IComponentData { }
+    public enum InteractionMode { Items, Appliances }
+    public enum InteractionType { Grab, Act, Notify }
+    public struct InteractionData { public Entity Interactor; public Entity Target; public bool ShouldAct; }
+    public class InteractionGroup : ComponentSystemGroupStub { }
+    public abstract class ComponentSystemGroupStub : SystemBase { protected override void OnUpdate() { } }
+    public abstract class InteractionSystem : GenericSystemBase
+    {
+        protected virtual InteractionMode RequiredMode => InteractionMode.Items;
+        protected abstract InteractionType RequiredType { get; }
+        protected virtual bool RequirePress => false;
+        protected virtual bool IsPossible(ref InteractionData data) => throw null;
+        protected abstract void Perform(ref InteractionData data);
+        protected override void OnUpdate() { }
+    }
+    public abstract class ApplianceInteractionSystem : InteractionSystem { }
+    public class InteractRotatePush : ApplianceInteractionSystem
+    {
+        protected override InteractionType RequiredType => InteractionType.Act;
+        protected override void Perform(ref InteractionData data) => throw null;
+    }
+    public class ShowPingedApplianceInfo : ApplianceInteractionSystem
+    {
+        protected override InteractionType RequiredType => InteractionType.Notify;
+        protected override void Perform(ref InteractionData data) => throw null;
+    }
+
     public class LocalViewRouter
     {
         protected virtual GameObject GetPrefab(ViewType view_type) => throw null;

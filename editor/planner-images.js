@@ -163,7 +163,7 @@ globalThis.PLANNER_IMAGES = {
     {"img": "whipping-cream.png", "name": "Whipping Cream", "planner": "BS", "codes": []},
     {"img": "extra-life.png", "name": "Extra Life", "planner": "UJ", "codes": ["ExtraLife"]},
     {"img": "plant.png", "name": "Plant", "planner": "qV", "codes": ["Plant"]},
-    {"img": "corner-grabber-left.png", "name": "Corner Grabber (Left)", "planner": "3V", "codes": [], "grabDirection": "Left"},
-    {"img": "corner-grabber-right.png", "name": "Corner Grabber (Right)", "planner": "U7", "codes": [], "grabDirection": "Right"},
+    {"img": "corner-grabber-left.png", "name": "Corner Grabber (Left)", "planner": "3V", "codes": [], "pushDirection": "Left"},
+    {"img": "corner-grabber-right.png", "name": "Corner Grabber (Right)", "planner": "U7", "codes": [], "pushDirection": "Right"},
   ],
 };

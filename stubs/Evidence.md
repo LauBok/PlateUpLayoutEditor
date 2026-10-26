@@ -29,6 +29,8 @@ against the real PlateUp! assemblies and use each API the same way. "UFK" = gith
 | Smart grabber learns `CItem.ID` + `CItem.Items` as `SpecificType` / `SpecificComponents` | UFK/PlateUpSmartGrabberPullBugFix `ReplaceMisgrabbedItem.cs` |
 | A plain item has itself as its only component: `new ItemList(id)`; `GameData.Main.Get<Item>()` | KitchenLib `Utils/EntityUtils.cs` (`CreateItem`); DecorOnDemand |
 | `CPlayer.InputSource`, player `CItemHolder` | DecorOnDemand `SpawnHandlerSystem.cs`; DragNDropDesigner `MousePickUpAndDropAppliance.cs` |
+| Rotating grabber `CConveyPushRotatable.Target` = output side (grabs from behind); cycle Left→Up→Right | AutomationPlus `PushItemsReversible.cs`, SuperCrane `Common/ApplianceInteractRotatePush.cs` |
+| Subclassing `InteractRotatePush` with `InteractionMode.Appliances` + `InteractionType.Notify` at night, `[UpdateInGroup(typeof(InteractionGroup))]`, `SIsNightTime` | AutomationPlus `InteractRotatePushDuringNight.cs` |
 | Harmony comes from the "Harmony" Workshop mod | OndrejNepozitek/KitchenDesigner `MissingDependenciesGUIManager.cs` |
 
 Exact member types that are not visible from usage (for example whether `EntityQuery` is a class
