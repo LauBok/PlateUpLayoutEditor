@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Game-independent layout logic. The same sources are compiled into the Workshop mod. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>PlateUpLayoutEditor.Core</AssemblyName>
+    <RootNamespace>PlateUpLayoutEditor.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- PlateUp ships its own Newtonsoft.Json; only basic attributes and JObject are used. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>

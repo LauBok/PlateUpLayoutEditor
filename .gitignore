@@ -1,0 +1,6 @@
+bin/
+obj/
+content/*.dll
+content/*.pdb
+*.user
+.vs/
