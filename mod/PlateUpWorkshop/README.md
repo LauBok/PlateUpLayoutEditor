@@ -1,30 +1,47 @@
-# PlateUp Workshop mod — loader milestone
+# Workshop mod
 
-This is a **real KitchenLib BaseMod entry point** adapted from [Aragami's PlateUp Workshop template](https://github.com/Aragami-delp/PlateUpModTemplate). It logs loader activation and does not change the restaurant.
+Entry point `Main` (`KitchenMods.IModInitializer`, loaded by the game's own mod loader; KitchenLib is
+not required). Systems are discovered through `IModSystem`.
 
-## Build prerequisites
-- Windows and a .NET SDK capable of targeting .NET Framework 4.7.2.
-- A PlateUp! installation with official Workshop support.
-- KitchenLib installed as a Workshop dependency.
-- Game and mod assemblies resolved by the mod build utility. The provided csproj is an initial adaptation and may require references/paths to be adjusted against your local installation.
+| File | Role |
+|---|---|
+| `LayoutEditorSystem.cs` | Host-side executor: snapshot, export, apply (via `ApplyPlanner`), delete, rotate, move, undo |
+| `ApplianceStateCodec.cs` | Saves/restores `CConveyPushRotatable.Target` and `CConveyPushItems` smart filter |
+| `LayoutEditorView.cs` | Networked screen view: client requests → host, host results → clients (Harmony prefab patch) |
+| `EditorChannel.cs` | Host executes locally, clients go through the view |
+| `EditorWindow.cs`, `TileOverlay.cs` | IMGUI window (F7), mouse tools and floor outlines |
+| `ApplianceCatalog.cs` | All appliances from `GameData`, name → ID resolution |
 
-Run from the repository root:
+How a change is made (host): appliances are created with `CCreateAppliance { ID }` + `CPosition`;
+once the game turned the request into an appliance, the tile occupant is registered and saved state
+is applied. Moves set `CPosition`, update occupancy and recreate the view (`CRemoveView`), the same
+way UrFriendKen's Drag'n'Drop Designer drops appliances. Removal destroys the entity (and anything it
+holds) and clears its occupancy.
+
+## Build (Windows)
+
+Requirements: PlateUp! installed through Steam, .NET SDK 6+ (targets .NET Framework 4.7.2 via
+reference packages), the Harmony Workshop mod subscribed (it is referenced from the Workshop folder).
 
 ```powershell
-dotnet build mod/PlateUpWorkshop/PlateUpLayoutEditor.csproj -c Release -p:PlateUpGameFolder="C:\Program Files (x86)\Steam\steamapps\common\PlateUp\PlateUp"
+dotnet build mod/PlateUpWorkshop -c Release
+# if the game is not found automatically:
+dotnet build mod/PlateUpWorkshop -c Release -p:GamePath="D:\SteamLibrary\steamapps\common\PlateUp\PlateUp"
 ```
 
-The DLL should be copied to `mod/PlateUpWorkshop/content/` after a successful build. This has **not** been built or installed yet. The exact loader packaging and dependencies must be checked against the installed game version.
+Output: `mod/PlateUpWorkshop/content/PlateUpLayoutEditor-Workshop.dll`. For a local test copy the
+`mod/PlateUpWorkshop` folder (with `content/`) to `<PlateUp>\Mods\PlateUpLayoutEditor\`, or upload
+that folder with the game's Workshop uploader.
 
-## Next step
-Confirm that the mod appears in the game's mod menu and the activation log is written. Then add a read-only ECS appliance query and a controlled spawn command.
+## First in-game test (disposable solo save)
 
-## Experimental ECS spawn probe (source added)
+1. Main log (`%USERPROFILE%\AppData\LocalLow\It's Happening\PlateUp\Player.log`) shows
+   `[Layout Editor] v0.2.0 loaded`.
+2. Start a restaurant, preparation phase, F7. Place a Countertop and a Smart Grabber; rotate; delete.
+3. Select a 3x3 area with appliances, Move by dx=1; check items on counters moved along.
+4. Files → Export restaurant; Undo; Files → apply the export as whole restaurant.
+5. Set a smart grabber filter by letting it grab an item, export, delete it, re-apply: the filter returns.
+6. Start the day: appliances must work (customers path, grabbers move items). Save, quit, reload.
+7. Multiplayer: second player opens F7 and places something; both screens show it.
 
-The `BlueprintSpawnProbe` uses the game's `CCreateAppliance`, `CPosition`, `CLetter`, `CLetterBlueprint`, and `CShopEntity` components. The pattern was cross-checked against [PlateUpEnhancementMod's SpawnItemsHandler](https://github.com/WillWilli/PlateUpEnhancementMod/blob/master/Willi.PlateUpEnhancementMod/EventHandlers/SpawnItemsHandler.cs).
-
-On first initialization, it creates a `spawn-probe.txt` beside the compiled DLL. The default `applianceId=0` disables the probe. To opt in, set a **verified** numeric appliance ID, restart the game, and press **F8** in a disposable **solo** restaurant. `worldX` and `worldZ` control the request location. A successful request should produce a **free blueprint**, not a placed appliance. It is not an Apply implementation.
-
-**Not yet compiled or tested. Do not use in multiplayer.** There is no host-authority check, phase guard, bounds validation, or rollback in the probe. Invalid appliance IDs or positions may produce unexpected results. Never enable it on a valued save.
-
-This is a limited, deliberate first game mutation experiment. After verifying loading and blueprint creation, implement authoritative ECS placement with a verified entity lifecycle rather than guessing at game internals.
+Report the `[Layout Editor]` lines and any exceptions from Player.log if something fails.

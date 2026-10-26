@@ -1,37 +1,529 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PlateUp Layout Editor</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PlateUp Layout Editor</title>
 <style>
-:root{font-family:system-ui,sans-serif;color:#e8edf3;background:#121922}body{margin:0}header,nav{padding:12px 18px;background:#202b38;display:flex;gap:8px;align-items:center;flex-wrap:wrap}header strong{margin-right:auto}button,input,select{background:#344456;color:white;border:1px solid #607287;border-radius:5px;padding:7px}button{cursor:pointer}button:hover{background:#4b637d}main{display:flex;gap:16px;padding:16px;flex-wrap:wrap}#grid{display:grid;grid-template-columns:repeat(12,38px);grid-template-rows:repeat(9,38px);gap:2px;touch-action:none;user-select:none} .cell{background:#293542;border:1px solid #425267;display:grid;place-items:center;font-size:10px;position:relative;cursor:pointer}.cell.selected{outline:2px solid #ffc35a;z-index:1}.cell.occupied{background:#456d81}.cell .arrow{position:absolute;right:1px;top:0;font-size:13px;color:#ffcb6b}aside{max-width:360px;min-width:280px;flex:1}textarea{width:100%;height:150px;box-sizing:border-box;background:#1e2935;color:white;border:1px solid #607287}small{color:#aebdcc}#status{padding:8px 16px;color:#ffcb6b}label{display:block;margin:8px 0}kbd{background:#364555;padding:2px 5px;border-radius:4px}</style></head>
-<body><header><strong>PlateUp Layout Editor — Prototype</strong><button id="new">New</button><button id="export">Export JSON</button><label>Import JSON <input id="file" type="file" accept=".json,application/json"></label></header>
-<nav><label>Tool <select id="tool"><option value="select">Select / move</option><option value="erase">Erase</option><option value="CoffeeMachine">Coffee Machine</option><option value="Grabber">Grabber</option><option value="SmartGrabber">Smart Grabber</option><option value="Counter">Counter</option><option value="Sink">Sink</option><option value="DiningTable">Dining Table</option><option value="Combiner">Combiner</option><option value="Portioner">Portioner</option></select></label><button id="rotate">Rotate R</button><button id="copy">Copy</button><button id="paste">Paste</button><button id="delete">Delete</button><button id="undo">Undo</button></nav>
-<main><div id="grid" aria-label="Layout grid"></div><aside><h3>Layout</h3><label>Name <input id="name" value="My Restaurant"></label><p><small>Click a tile to place or select. Drag a selected appliance to move it. Hold Shift and click to multi-select. Copy/Paste uses an internal relative-position clipboard; click an empty tile to choose paste origin. Rotation applies to all selected appliances.</small></p><label>Selected appliance state (JSON) <textarea id="state">{}</textarea></label><button id="saveState">Save state</button><p><small>Appliance names are illustrative, not verified PlateUp game IDs. This editor does not connect to the game or import PlateUp Tool share links yet.</small></p></aside></main><div id="status" role="status"></div>
+:root{--bg:#121922;--panel:#1c2632;--panel2:#243243;--line:#3d4f63;--text:#e8edf3;--muted:#9fb0c2;--accent:#ffc35a;--floor:#2f4152;--floor2:#2a3a4a;--outside:#161e27;--blocked:#3a2f2f;--wall:#d9e2ec;--app:#4f7fa3;--sel:#ffc35a;--ghost:rgba(90,220,255,.55)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header strong{margin-right:auto;font-size:15px}
+button,input,select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--accent)}button.on{background:#5a4a20;border-color:var(--accent)}
+input[type=file]{display:none}
+.layout{display:grid;grid-template-columns:260px 1fr 290px;gap:12px;padding:12px;min-height:calc(100vh - 100px)}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.panel h3{margin:4px 0 8px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+#palette{height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px;margin-top:6px}
+#palette div{padding:4px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#palette div:hover{background:var(--panel2)}#palette div.on{background:#5a4a20}
+.tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.row label{color:var(--muted);min-width:70px}
+#stage{overflow:auto;max-height:calc(100vh - 140px)}
+canvas{display:block;touch-action:none;cursor:crosshair}
+#status{padding:6px 14px;color:var(--accent);min-height:30px}
+small,.muted{color:var(--muted)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
+textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;font:12px monospace}
+</style>
+</head>
+<body>
+<header>
+  <strong>PlateUp Layout Editor</strong>
+  <input id="name" value="My Restaurant" aria-label="Layout name" size="18">
+  <button id="new">New</button>
+  <button id="importBtn" title="Restaurant layout, module or catalog.json">Import…</button>
+  <input id="file" type="file" accept=".json,application/json">
+  <button id="exportBtn">Export restaurant</button>
+  <button id="exportModule" title="Save the selected rectangle as a reusable module">Export selection as module</button>
+</header>
+<div class="layout">
+  <section class="panel">
+    <h3>Appliances</h3>
+    <input id="search" placeholder="Search…" style="width:100%">
+    <div id="palette" role="listbox" aria-label="Appliance catalog"></div>
+    <p><small id="catalogInfo"></small></p>
+  </section>
+  <section class="panel">
+    <div class="tools" id="tools">
+      <button data-tool="select" class="on" title="Click / drag to select, drag a selection to move (V)">Select</button>
+      <button data-tool="place" title="Place the palette appliance (B)">Place</button>
+      <button data-tool="erase" title="Erase (X)">Erase</button>
+      <button id="rotate" title="Rotate selection or paste (R)">Rotate ⟳</button>
+      <button id="copy" title="Ctrl+C">Copy</button>
+      <button id="cut" title="Ctrl+X">Cut</button>
+      <button id="paste" title="Ctrl+V, then click">Paste</button>
+      <button id="delete" title="Delete">Delete</button>
+      <button id="undo" title="Ctrl+Z">Undo</button>
+      <button id="redo" title="Ctrl+Y">Redo</button>
+    </div>
+    <div id="stage"><canvas id="grid" aria-label="Layout grid"></canvas></div>
+    <div id="status" role="status"></div>
+  </section>
+  <section class="panel">
+    <h3>Selection</h3>
+    <div id="inspector" class="muted">Nothing selected.</div>
+    <h3 style="margin-top:16px">Grid</h3>
+    <div class="row"><label>X range</label><input id="minX" type="number" style="width:64px"> – <input id="maxX" type="number" style="width:64px"></div>
+    <div class="row"><label>Y range</label><input id="minY" type="number" style="width:64px"> – <input id="maxY" type="number" style="width:64px"></div>
+    <div class="row"><button id="applyGrid">Resize grid</button><button id="clearFloor" title="Forget the floor plan imported from the game">Clear floor plan</button></div>
+    <p><small>Coordinates are game world tiles (north is up). Export a restaurant from the game (F7 → Files → Export restaurant) and import it here to edit on top of the real floor plan. Copy the saved file into the game's <code>LayoutEditor</code> folder to apply it.</small></p>
+    <p><small><kbd>R</kbd> rotate · <kbd>Del</kbd> delete · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd>/<kbd>Z</kbd>/<kbd>Y</kbd> · <kbd>Esc</kbd> cancel paste · arrows nudge selection</small></p>
+  </section>
+</div>
+<script src="catalog.js"></script>
+<script src="editor-core.js"></script>
 <script>
-(()=>{'use strict';
-const W=12,H=9,grid=document.querySelector('#grid'),status=document.querySelector('#status');
-let appliances=[],selected=new Set(),clipboard=[],history=[],nextId=1,drag=null;
-const $=id=>document.getElementById(id);
-const snapshot=()=>JSON.stringify({appliances,nextId});
-const remember=()=>{history.push(snapshot());if(history.length>80)history.shift()};
-const notice=t=>status.textContent=t;
-const valid=(x,y)=>Number.isInteger(x)&&Number.isInteger(y)&&x>=0&&x<W&&y>=0&&y<H;
-const at=(x,y)=>appliances.find(a=>a.x===x&&a.y===y);
-const freshId=()=>String(nextId++);
-function render(){grid.innerHTML='';for(let y=0;y<H;y++)for(let x=0;x<W;x++){const a=at(x,y),c=document.createElement('div');c.className='cell'+(a?' occupied':'')+(a&&selected.has(a.id)?' selected':'');c.dataset.x=x;c.dataset.y=y;if(a){const s=document.createElement('span');s.textContent=a.type.replace(/([a-z])([A-Z])/g,'$1 $2');c.append(s);const arrow=document.createElement('span');arrow.className='arrow';arrow.textContent=['↑','→','↓','←'][a.rotation/90]||'↑';c.append(arrow)}grid.append(c)}const a=appliances.find(a=>selected.has(a.id));$('state').value=a?JSON.stringify(a.state||{},null,2):'{}'}
-function changeSelection(a,shift){if(!shift)selected.clear();if(a){if(shift&&selected.has(a.id))selected.delete(a.id);else selected.add(a.id)}render()}
-function place(x,y,type){if(!valid(x,y)||at(x,y))return notice('Tile is occupied or out of bounds');remember();const a={id:freshId(),type,x,y,rotation:0,state:{}};appliances.push(a);changeSelection(a,false)}
-function paste(x,y){if(!clipboard.length)return notice('Clipboard empty');const minx=Math.min(...clipboard.map(a=>a.x)),miny=Math.min(...clipboard.map(a=>a.y));const targets=clipboard.map(a=>({...a,x:x+a.x-minx,y:y+a.y-miny}));if(targets.some(a=>!valid(a.x,a.y)||at(a.x,a.y)))return notice('Paste rejected: collision or out of bounds');remember();selected.clear();for(const a of targets){a.id=freshId();appliances.push(a);selected.add(a.id)}render();notice('Pasted '+targets.length+' appliances')}
-grid.addEventListener('pointerdown',e=>{const c=e.target.closest('.cell');if(!c)return;const x=+c.dataset.x,y=+c.dataset.y,type=$('tool').value,a=at(x,y);if(type==='erase'){if(a){remember();appliances=appliances.filter(v=>v!==a);selected.delete(a.id);render()}return}if(type!=='select'){place(x,y,type);return}if(clipboard.length&&e.altKey){paste(x,y);return}if(a&&selected.has(a.id)&&!e.shiftKey){drag={x,y,original:appliances.filter(v=>selected.has(v.id)).map(v=>({...v}))};return}changeSelection(a,e.shiftKey)});
-grid.addEventListener('pointerup',e=>{if(!drag)return;const c=e.target.closest('.cell');if(c){const dx=+c.dataset.x-drag.x,dy=+c.dataset.y-drag.y,ids=new Set(drag.original.map(a=>a.id));const moved=drag.original.map(a=>({...a,x:a.x+dx,y:a.y+dy}));if(moved.every(a=>valid(a.x,a.y)&&!appliances.some(b=>!ids.has(b.id)&&b.x===a.x&&b.y===a.y))){if(dx||dy){remember();for(const a of moved)Object.assign(appliances.find(b=>b.id===a.id),{x:a.x,y:a.y})}}else notice('Move rejected: collision or out of bounds')}drag=null;render()});
-$('rotate').onclick=()=>{if(!selected.size)return;remember();appliances.filter(a=>selected.has(a.id)).forEach(a=>a.rotation=(a.rotation+90)%360);render()};
-$('copy').onclick=()=>{clipboard=appliances.filter(a=>selected.has(a.id)).map(a=>structuredClone(a));notice('Copied '+clipboard.length+' appliances; Alt+click a destination or use Paste')};
-$('paste').onclick=()=>{if(!clipboard.length)return notice('Clipboard empty');notice('Alt+click an empty tile to paste')};
-$('delete').onclick=()=>{if(!selected.size)return;remember();appliances=appliances.filter(a=>!selected.has(a.id));selected.clear();render()};
-$('undo').onclick=()=>{if(!history.length)return;const s=JSON.parse(history.pop());appliances=s.appliances;nextId=s.nextId;selected.clear();render()};
-$('saveState').onclick=()=>{const a=appliances.find(a=>selected.has(a.id));if(!a)return notice('Select an appliance first');try{const value=JSON.parse($('state').value);if(!value||Array.isArray(value)||typeof value!=='object')throw Error('State must be an object');remember();a.state=value;notice('State saved')}catch(e){notice('Invalid state: '+e.message)}};
-$('new').onclick=()=>{if(!confirm('Clear current layout?'))return;remember();appliances=[];selected.clear();render()};
-$('export').onclick=()=>{const doc={version:1,name:$('name').value,origin:{x:0,y:0},appliances};const blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='plateup-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const doc=JSON.parse(await f.text());if(doc.version!==1||!Array.isArray(doc.appliances))throw Error('Unsupported layout format');const ids=new Set(),positions=new Set();for(const a of doc.appliances){if(typeof a.id!=='string'||ids.has(a.id)||typeof a.type!=='string'||!valid(a.x,a.y)||![0,90,180,270].includes(a.rotation)||!a.state||typeof a.state!=='object'||Array.isArray(a.state))throw Error('Invalid appliance');const p=a.x+','+a.y;if(positions.has(p))throw Error('Overlapping appliances');ids.add(a.id);positions.add(p)}remember();appliances=doc.appliances.map(a=>structuredClone(a));nextId=1;while(ids.has(String(nextId)))nextId++;selected.clear();$('name').value=doc.name||'Imported Layout';render();notice('Imported '+appliances.length+' appliances')}catch(err){notice('Import failed: '+err.message)}finally{e.target.value=''}};
-document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(e.key.toLowerCase()==='r')$('rotate').click();if(e.key==='Delete')$('delete').click();if((e.ctrlKey||e.metaKey)&&e.key==='c'){$('copy').click();e.preventDefault()}if((e.ctrlKey||e.metaKey)&&e.key==='z'){$('undo').click();e.preventDefault()}});
-render();notice('Browser-only prototype. No game modifications are performed.');
+(() => {
+'use strict';
+const C = globalThis.LayoutCore;
+const $ = (id) => document.getElementById(id);
+const canvas = $('grid'), ctx = canvas.getContext('2d');
+const CELL = 34;
+
+// ---------- state ----------
+let catalog = (globalThis.PLATEUP_APPLIANCES || []).slice();
+let catalogSource = 'built-in list (KitchenLib references)';
+let byId = new Map(), byCode = new Map();
+let doc = emptyDoc();
+let grid = { minX: -1, minY: -1, maxX: 16, maxY: 10 };
+let selected = new Set();          // record ids
+let paletteId = 0;                 // appliance id for the Place tool
+let tool = 'select';
+let placeRotation = 0;
+let clipboard = null;              // { appliances, bounds } module-like
+let paste = null;                  // { turns } while pasting
+let hover = null;                  // [x, y]
+let drag = null;
+const undoStack = [], redoStack = [];
+
+function emptyDoc() { return { format: C.FORMAT, version: C.VERSION, kind: 'restaurant', name: 'My Restaurant', appliances: [] }; }
+function indexCatalog() {
+  byId = new Map(catalog.map((e) => [e.id, e]));
+  byCode = new Map(catalog.map((e) => [String(e.code).toLowerCase(), e]));
+}
+const nameOf = (a) => (byId.get(a.applianceId) || byCode.get(String(a.type).toLowerCase()) || {}).name || a.type || ('#' + a.applianceId);
+const notice = (t) => { $('status').textContent = t; };
+const at = (x, y, layer) => doc.appliances.find((a) => a.x === x && a.y === y && C.layerOf(a) === (layer || 'Default'));
+const topAt = (x, y) => at(x, y) || doc.appliances.find((a) => a.x === x && a.y === y);
+const selectedRecords = () => doc.appliances.filter((a) => selected.has(a.id));
+const takenIds = () => new Set(doc.appliances.map((a) => a.id));
+const floorMap = () => {
+  const m = new Map();
+  for (const t of doc.tiles || []) m.set(t.x + ',' + t.y, t);
+  return m;
+};
+let floor = new Map();
+
+function remember() {
+  undoStack.push(JSON.stringify(doc));
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+}
+function restore(json) { doc = JSON.parse(json); selected.clear(); floor = floorMap(); sync(); }
+
+// ---------- geometry ----------
+const cols = () => grid.maxX - grid.minX + 1, rows = () => grid.maxY - grid.minY + 1;
+const toCanvas = (x, y) => [(x - grid.minX) * CELL, (grid.maxY - y) * CELL];
+function toTile(ev) {
+  const r = canvas.getBoundingClientRect();
+  const cx = (ev.clientX - r.left) * (canvas.width / r.width) / devicePixelRatio;
+  const cy = (ev.clientY - r.top) * (canvas.height / r.height) / devicePixelRatio;
+  return [grid.minX + Math.floor(cx / CELL), grid.maxY - Math.floor(cy / CELL)];
+}
+const inGrid = (x, y) => x >= grid.minX && x <= grid.maxX && y >= grid.minY && y <= grid.maxY;
+function placeable(x, y) {
+  if (!inGrid(x, y)) return false;
+  if (!floor.size) return true;
+  const t = floor.get(x + ',' + y);
+  return !!t && t.placeable;
+}
+
+// ---------- rendering ----------
+function sync() {
+  if (doc.bounds) grid = { ...doc.bounds };
+  for (const k of ['minX', 'minY', 'maxX', 'maxY']) $(k).value = grid[k];
+  $('name').value = doc.name || '';
+  render(); renderInspector();
+}
+function resizeCanvas() {
+  const w = cols() * CELL, h = rows() * CELL;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  canvas.width = w * devicePixelRatio; canvas.height = h * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+function render() {
+  resizeCanvas();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let x = grid.minX; x <= grid.maxX; x++) for (let y = grid.minY; y <= grid.maxY; y++) {
+    const [px, py] = toCanvas(x, y);
+    let color;
+    if (floor.size) {
+      const t = floor.get(x + ',' + y);
+      color = !t || t.room === 0 ? '#161e27' : (t.placeable ? ((x + y) % 2 ? '#2f4152' : '#2a3a4a') : '#3a2f2f');
+    } else color = (x + y) % 2 ? '#2f4152' : '#2a3a4a';
+    ctx.fillStyle = color; ctx.fillRect(px, py, CELL, CELL);
+    ctx.strokeStyle = '#3d4f63'; ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, CELL - 1, CELL - 1);
+  }
+  // walls
+  ctx.strokeStyle = '#d9e2ec'; ctx.lineWidth = 3;
+  for (const w of doc.walls || []) {
+    const [px, py] = toCanvas(w.x, w.y);
+    ctx.beginPath();
+    if (w.dir === 'E') { ctx.moveTo(px + CELL, py); ctx.lineTo(px + CELL, py + CELL); }
+    else { ctx.moveTo(px, py); ctx.lineTo(px + CELL, py); }
+    ctx.stroke();
+  }
+  // axis labels
+  ctx.fillStyle = 'rgba(159,176,194,.55)'; ctx.font = '9px system-ui';
+  for (let x = grid.minX; x <= grid.maxX; x++) { const [px] = toCanvas(x, grid.minY); ctx.fillText(x, px + 2, rows() * CELL - 2); }
+  for (let y = grid.minY; y <= grid.maxY; y++) { const [, py] = toCanvas(grid.minX, y); ctx.fillText(y, 2, py + 10); }
+  // appliances (floor layer first)
+  const ordered = doc.appliances.slice().sort((a, b) => (C.layerOf(a) === 'Default') - (C.layerOf(b) === 'Default'));
+  for (const a of ordered) drawAppliance(a, selected.has(a.id) ? 'sel' : 'normal');
+  // overlays
+  if (paste && hover && clipboard) {
+    for (const a of pastedRecords(hover[0], hover[1])) drawAppliance(a, placeable(a.x, a.y) ? 'ghost' : 'bad');
+  } else if (tool === 'place' && hover && paletteId) {
+    drawAppliance({ applianceId: paletteId, x: hover[0], y: hover[1], rotation: placeRotation }, placeable(hover[0], hover[1]) ? 'ghost' : 'bad');
+  }
+  if (drag && drag.kind === 'box') {
+    const r = C.rect(drag.x0, drag.y0, drag.x1, drag.y1);
+    const [px, py] = toCanvas(r.minX, r.maxY);
+    ctx.strokeStyle = '#ffc35a'; ctx.setLineDash([5, 4]); ctx.lineWidth = 2;
+    ctx.strokeRect(px + 1, py + 1, (r.maxX - r.minX + 1) * CELL - 2, (r.maxY - r.minY + 1) * CELL - 2);
+    ctx.setLineDash([]);
+  }
+  if (drag && drag.kind === 'move' && (drag.dx || drag.dy)) {
+    for (const a of drag.items) drawAppliance({ ...a, x: a.x + drag.dx, y: a.y + drag.dy }, 'ghost');
+  }
+}
+function drawAppliance(a, mode) {
+  if (!inGrid(a.x, a.y)) return;
+  const [px, py] = toCanvas(a.x, a.y);
+  const floorLayer = C.layerOf(a) !== 'Default';
+  const inset = floorLayer ? 1 : 4;
+  ctx.fillStyle = mode === 'ghost' ? 'rgba(90,220,255,.45)' : mode === 'bad' ? 'rgba(255,80,80,.5)' : floorLayer ? '#3d5a4a' : '#4f7fa3';
+  ctx.fillRect(px + inset, py + inset, CELL - 2 * inset, CELL - 2 * inset);
+  if (mode === 'sel') { ctx.strokeStyle = '#ffc35a'; ctx.lineWidth = 2.5; ctx.strokeRect(px + 2, py + 2, CELL - 4, CELL - 4); }
+  // facing arrow
+  const cx = px + CELL / 2, cy = py + CELL / 2, ang = (a.rotation || 0) * Math.PI / 180;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+  ctx.fillStyle = '#ffcb6b'; ctx.beginPath(); ctx.moveTo(0, -CELL / 2 + 3); ctx.lineTo(-5, -CELL / 2 + 10); ctx.lineTo(5, -CELL / 2 + 10); ctx.fill();
+  ctx.restore();
+  if (a.state && a.state.grabDirection) {
+    const rel = { Up: 0, Right: 90, Down: 180, Left: 270 }[a.state.grabDirection] || 0;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate((a.rotation + rel) * Math.PI / 180);
+    ctx.strokeStyle = '#7dffa0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -CELL / 2 + 6); ctx.stroke(); ctx.restore();
+  }
+  ctx.fillStyle = '#fff'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+  const label = abbreviate(nameOf(a));
+  ctx.fillText(label, cx, cy + 4, CELL - 4);
+  ctx.textAlign = 'start';
+}
+function abbreviate(name) {
+  const words = String(name).replace(/([a-z])([A-Z])/g, '$1 $2').split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 6);
+  return words.map((w) => w[0]).join('').slice(0, 4).toUpperCase();
+}
+
+// ---------- palette ----------
+function renderPalette() {
+  const words = $('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const list = $('palette'); list.innerHTML = '';
+  for (const e of catalog) {
+    const hay = (e.name + ' ' + e.code).toLowerCase();
+    if (!words.every((w) => hay.includes(w))) continue;
+    const d = document.createElement('div');
+    d.textContent = e.name; d.title = e.code + ' (' + e.id + ')';
+    d.setAttribute('role', 'option');
+    if (e.id === paletteId) d.className = 'on';
+    d.onclick = () => { paletteId = e.id; setTool('place'); renderPalette(); };
+    list.append(d);
+  }
+  $('catalogInfo').textContent = catalog.length + ' appliances from ' + catalogSource + '.';
+}
+
+// ---------- inspector ----------
+function renderInspector() {
+  const el = $('inspector');
+  const recs = selectedRecords();
+  if (!recs.length) { el.className = 'muted'; el.textContent = clipboard ? 'Nothing selected. Clipboard: ' + clipboard.appliances.length + ' appliances.' : 'Nothing selected.'; return; }
+  el.className = '';
+  if (recs.length > 1) {
+    const b = C.boundsOf(recs);
+    el.innerHTML = '<p>' + recs.length + ' appliances selected<br><small>(' + b.minX + ',' + b.minY + ') – (' + b.maxX + ',' + b.maxY + ')</small></p>';
+    return;
+  }
+  const a = recs[0];
+  el.innerHTML = '';
+  const add = (html) => { const d = document.createElement('div'); d.className = 'row'; d.innerHTML = html; el.append(d); return d; };
+  add('<label>Appliance</label><b></b>').querySelector('b').textContent = nameOf(a);
+  add('<label>ID</label><span>' + a.applianceId + '</span>');
+  add('<label>Position</label><span>' + a.x + ', ' + a.y + (a.layer ? ' (' + a.layer + ')' : '') + '</span>');
+  const rot = add('<label>Facing</label><select id="insRot"><option>0</option><option>90</option><option>180</option><option>270</option></select>');
+  rot.querySelector('select').value = String(a.rotation);
+  rot.querySelector('select').onchange = (e) => { remember(); a.rotation = +e.target.value; render(); };
+  const st = a.state || {};
+  const gd = add('<label>Grab from</label><select id="insGrab"><option value="">(default)</option><option>Up</option><option>Right</option><option>Down</option><option>Left</option></select>');
+  gd.querySelector('select').value = st.grabDirection || '';
+  gd.querySelector('select').onchange = (e) => { remember(); setState(a, 'grabDirection', e.target.value || undefined); };
+  const sf = add('<label>Smart filter</label><input id="insFilter" type="number" placeholder="item id" style="width:110px">');
+  sf.querySelector('input').value = st.specificType || '';
+  sf.querySelector('input').onchange = (e) => { remember(); const v = parseInt(e.target.value, 10); setState(a, 'specificType', Number.isInteger(v) && v ? v : undefined); };
+  add('<small>Grab direction applies to rotating grabbers; the smart filter applies to smart grabbers (item id from an exported layout). Other appliances ignore these values.</small>');
+}
+function setState(a, key, value) {
+  const s = { ...(a.state || {}) };
+  if (value === undefined) delete s[key]; else s[key] = value;
+  const clean = C.cleanState(s);
+  if (clean) a.state = clean; else delete a.state;
+  render();
+}
+
+// ---------- editing ----------
+function setTool(t) {
+  tool = t; paste = null;
+  for (const b of document.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === t);
+  render();
+}
+function placeAt(x, y) {
+  if (!paletteId) return notice('Pick an appliance in the list first');
+  if (!placeable(x, y)) return notice('Cannot place outside the restaurant');
+  const entry = byId.get(paletteId) || {};
+  const existing = at(x, y, entry.layer && entry.layer !== 'Default' ? entry.layer : undefined);
+  remember();
+  if (existing) doc.appliances = doc.appliances.filter((a) => a !== existing);
+  const rec = { id: C.freshId(takenIds()), applianceId: paletteId, type: entry.code || '', x, y, rotation: placeRotation };
+  if (entry.layer && entry.layer !== 'Default') rec.layer = entry.layer;
+  doc.appliances.push(rec);
+  selected = new Set([rec.id]);
+  render(); renderInspector();
+}
+function eraseAt(x, y) {
+  const a = topAt(x, y);
+  if (!a) return;
+  remember();
+  doc.appliances = doc.appliances.filter((v) => v !== a);
+  selected.delete(a.id); render(); renderInspector();
+}
+function rotateSelection() {
+  if (paste) { paste.turns = (paste.turns + 1) % 4; render(); return; }
+  if (tool === 'place') { placeRotation = (placeRotation + 90) % 360; render(); return; }
+  const recs = selectedRecords();
+  if (!recs.length) return;
+  remember();
+  if (recs.length === 1) recs[0].rotation = C.norm(recs[0].rotation + 90);
+  else {
+    // Rotate the whole block clockwise around its bounding box.
+    const b = C.boundsOf(recs);
+    const rel = recs.map((a) => ({ ...a, x: a.x - b.minX, y: a.y - b.minY }));
+    const placed = C.place(rel, b.minX, b.minY, 1, C.rect(0, 0, b.maxX - b.minX, b.maxY - b.minY));
+    const ids = new Set(recs.map((a) => a.id));
+    if (placed.some((p) => !placeable(p.x, p.y) || doc.appliances.some((o) => !ids.has(o.id) && o.x === p.x && o.y === p.y && C.layerOf(o) === C.layerOf(p)))) {
+      undoStack.pop(); return notice('Rotation blocked: collision or outside the restaurant');
+    }
+    for (const p of placed) Object.assign(doc.appliances.find((a) => a.id === p.id), { x: p.x, y: p.y, rotation: p.rotation });
+  }
+  render(); renderInspector();
+}
+function moveSelection(dx, dy) {
+  const recs = selectedRecords();
+  if (!recs.length || (!dx && !dy)) return false;
+  const ids = new Set(recs.map((a) => a.id));
+  const moved = recs.map((a) => ({ ...a, x: a.x + dx, y: a.y + dy }));
+  if (moved.some((m) => !placeable(m.x, m.y) || doc.appliances.some((o) => !ids.has(o.id) && o.x === m.x && o.y === m.y && C.layerOf(o) === C.layerOf(m)))) {
+    notice('Move blocked: collision or outside the restaurant'); return false;
+  }
+  remember();
+  for (const m of moved) Object.assign(doc.appliances.find((a) => a.id === m.id), { x: m.x, y: m.y });
+  render(); renderInspector(); return true;
+}
+function deleteSelection() {
+  if (!selected.size) return;
+  remember();
+  doc.appliances = doc.appliances.filter((a) => !selected.has(a.id));
+  selected.clear(); render(); renderInspector();
+}
+function copySelection() {
+  const recs = selectedRecords();
+  if (!recs.length) return notice('Select something to copy');
+  const b = C.boundsOf(recs);
+  clipboard = C.extractModule(recs, b, 'clipboard');
+  notice('Copied ' + recs.length + ' appliances. Ctrl+V / Paste, R to rotate, click to place.');
+  renderInspector();
+}
+function startPaste() {
+  if (!clipboard) return notice('Clipboard is empty');
+  setTool('select'); paste = { turns: 0 };
+  notice('Pasting ' + clipboard.appliances.length + ' appliances: click the bottom-left tile, R rotates, Esc cancels.');
+}
+function pastedRecords(x, y) {
+  const fp = clipboard.bounds || C.boundsOf(clipboard.appliances);
+  return C.place(clipboard.appliances, x, y, paste.turns, fp);
+}
+function pasteAt(x, y) {
+  const recs = pastedRecords(x, y);
+  const bad = recs.filter((r) => !placeable(r.x, r.y));
+  if (bad.length) return notice('Paste blocked: ' + bad.length + ' appliances outside the restaurant');
+  remember();
+  // Pasting replaces whatever is on the target tiles (same rule as the mod's default "Replace").
+  const keys = new Set(recs.map((r) => C.cellKey(r.x, r.y, r.layer)));
+  doc.appliances = doc.appliances.filter((a) => !keys.has(C.cellKey(a.x, a.y, a.layer)));
+  const taken = takenIds();
+  selected.clear();
+  for (const r of recs) { r.id = C.freshId(taken); doc.appliances.push(r); selected.add(r.id); }
+  notice('Pasted ' + recs.length + ' appliances');
+  render(); renderInspector();
+}
+
+// ---------- pointer ----------
+canvas.addEventListener('pointerdown', (ev) => {
+  const [x, y] = toTile(ev);
+  canvas.setPointerCapture(ev.pointerId);
+  if (paste) { pasteAt(x, y); if (!ev.shiftKey) paste = null; render(); return; }
+  if (tool === 'place') { placeAt(x, y); drag = { kind: 'paint' }; return; }
+  if (tool === 'erase') { eraseAt(x, y); drag = { kind: 'erase' }; return; }
+  const a = topAt(x, y);
+  if (a && selected.has(a.id) && !ev.shiftKey) { drag = { kind: 'move', x0: x, y0: y, dx: 0, dy: 0, items: selectedRecords().map((r) => ({ ...r })) }; return; }
+  if (a) {
+    if (ev.shiftKey) { selected.has(a.id) ? selected.delete(a.id) : selected.add(a.id); }
+    else selected = new Set([a.id]);
+    drag = { kind: 'move', x0: x, y0: y, dx: 0, dy: 0, items: selectedRecords().map((r) => ({ ...r })) };
+  } else {
+    if (!ev.shiftKey) selected.clear();
+    drag = { kind: 'box', x0: x, y0: y, x1: x, y1: y, additive: ev.shiftKey };
+  }
+  render(); renderInspector();
+});
+canvas.addEventListener('pointermove', (ev) => {
+  const t = toTile(ev);
+  const changed = !hover || hover[0] !== t[0] || hover[1] !== t[1];
+  hover = t;
+  if (drag) {
+    if (drag.kind === 'paint' && changed && !topAt(t[0], t[1])) placeAt(t[0], t[1]);
+    if (drag.kind === 'erase' && changed) eraseAt(t[0], t[1]);
+    if (drag.kind === 'box') { drag.x1 = t[0]; drag.y1 = t[1]; }
+    if (drag.kind === 'move') { drag.dx = t[0] - drag.x0; drag.dy = t[1] - drag.y0; }
+  }
+  if (changed) render();
+});
+canvas.addEventListener('pointerup', () => {
+  if (drag && drag.kind === 'box') {
+    const r = C.rect(drag.x0, drag.y0, drag.x1, drag.y1);
+    for (const a of doc.appliances) if (C.rectContains(r, a.x, a.y)) selected.add(a.id);
+    drag.selection = r;
+    lastBox = r;
+  } else if (drag && drag.kind === 'move') moveSelection(drag.dx, drag.dy);
+  drag = null; render(); renderInspector();
+});
+canvas.addEventListener('pointerleave', () => { hover = null; render(); });
+let lastBox = null;
+
+// ---------- files ----------
+function download(name, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const fileName = (s) => (s || 'layout').trim().replace(/[^\w\-. ]+/g, '_').replace(/\s+/g, '-') + '.json';
+$('exportBtn').onclick = () => {
+  doc.name = $('name').value;
+  const out = { ...doc, kind: 'restaurant', bounds: doc.bounds || { ...grid } };
+  download(fileName(doc.name), out);
+  notice('Exported ' + doc.appliances.length + ' appliances');
+};
+$('exportModule').onclick = () => {
+  const recs = selectedRecords();
+  if (!recs.length) return notice('Select the appliances (drag a box) to export as a module');
+  const region = lastBox && recs.every((a) => C.rectContains(lastBox, a.x, a.y)) ? lastBox : C.boundsOf(recs);
+  const m = C.extractModule(recs, region, $('name').value + ' module');
+  download(fileName($('name').value + '-module'), m);
+  notice('Exported module with ' + m.appliances.length + ' appliances');
+};
+$('importBtn').onclick = () => $('file').click();
+$('file').onchange = async (ev) => {
+  const f = ev.target.files[0];
+  ev.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (Array.isArray(data)) {
+      // catalog.json written by the mod: [{id, code, name, layer, ...}]
+      if (!data.every((e) => Number.isInteger(e.id) && typeof e.name === 'string')) throw new Error('Unrecognised catalog');
+      catalog = data.slice().sort((a, b) => a.name.localeCompare(b.name)); catalogSource = f.name;
+      indexCatalog(); renderPalette(); render();
+      return notice('Loaded catalog with ' + catalog.length + ' appliances');
+    }
+    const d = C.normalizeDocument(data);
+    for (const a of d.appliances) {
+      if (!a.applianceId && a.type) { const e = byCode.get(a.type.toLowerCase()); if (e) a.applianceId = e.id; }
+    }
+    if (d.kind === 'module') {
+      clipboard = d; startPaste();
+      return;
+    }
+    remember();
+    doc = d; floor = floorMap(); selected.clear();
+    if (!doc.bounds) {
+      const b = C.boundsOf(doc.appliances);
+      if (b) doc.bounds = C.rect(Math.min(b.minX, grid.minX), Math.min(b.minY, grid.minY), Math.max(b.maxX, grid.maxX), Math.max(b.maxY, grid.maxY));
+    }
+    sync();
+    const unknown = doc.appliances.filter((a) => !a.applianceId).length;
+    notice('Imported ' + doc.appliances.length + ' appliances' + (unknown ? ' (' + unknown + ' without a known appliance id will be resolved by name in game)' : ''));
+  } catch (err) { notice('Import failed: ' + err.message); }
+};
+$('new').onclick = () => {
+  if (doc.appliances.length && !confirm('Clear the current layout?')) return;
+  remember(); doc = emptyDoc(); floor = new Map(); selected.clear(); sync();
+};
+$('applyGrid').onclick = () => {
+  const g = {}; for (const k of ['minX', 'minY', 'maxX', 'maxY']) g[k] = parseInt($(k).value, 10);
+  if (Object.values(g).some((v) => !Number.isInteger(v)) || g.minX > g.maxX || g.minY > g.maxY || (g.maxX - g.minX) > 80 || (g.maxY - g.minY) > 80) return notice('Invalid grid range');
+  grid = g; doc.bounds = { ...g }; render();
+};
+$('clearFloor').onclick = () => { remember(); delete doc.tiles; delete doc.walls; floor = new Map(); render(); };
+$('name').oninput = () => { doc.name = $('name').value; };
+
+// ---------- buttons & keys ----------
+for (const b of document.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
+$('rotate').onclick = rotateSelection;
+$('copy').onclick = copySelection;
+$('cut').onclick = () => { copySelection(); deleteSelection(); };
+$('paste').onclick = startPaste;
+$('delete').onclick = deleteSelection;
+$('undo').onclick = () => { if (!undoStack.length) return; redoStack.push(JSON.stringify(doc)); restore(undoStack.pop()); };
+$('redo').onclick = () => { if (!redoStack.length) return; undoStack.push(JSON.stringify(doc)); restore(redoStack.pop()); };
+$('search').oninput = renderPalette;
+document.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (mod && k === 'c') { copySelection(); e.preventDefault(); }
+  else if (mod && k === 'x') { copySelection(); deleteSelection(); e.preventDefault(); }
+  else if (mod && k === 'v') { startPaste(); e.preventDefault(); }
+  else if (mod && k === 'z') { $('undo').click(); e.preventDefault(); }
+  else if (mod && k === 'y') { $('redo').click(); e.preventDefault(); }
+  else if (k === 'r') rotateSelection();
+  else if (k === 'delete' || k === 'backspace') deleteSelection();
+  else if (k === 'escape') { paste = null; drag = null; render(); }
+  else if (k === 'v') setTool('select');
+  else if (k === 'b') setTool('place');
+  else if (k === 'x') setTool('erase');
+  else if (k.startsWith('arrow')) {
+    const d = { arrowup: [0, 1], arrowdown: [0, -1], arrowleft: [-1, 0], arrowright: [1, 0] }[k];
+    if (moveSelection(d[0], d[1])) e.preventDefault();
+  }
+});
+
+indexCatalog(); renderPalette(); sync();
+notice('Design here, export, then apply in game with F7 → Files. Modules (exported selections) paste anywhere with rotation.');
 })();
-</script></body></html>
+</script>
+</body>
+</html>

@@ -1,44 +1,18 @@
 {
-  "version": 1,
-  "name": "Coffee line (illustrative)",
-  "origin": {
-    "x": 0,
-    "y": 0
-  },
+  "format": "plateup-layout",
+  "version": 2,
+  "kind": "module",
+  "name": "Coffee line (example module)",
+  "bounds": { "minX": 0, "minY": 0, "maxX": 4, "maxY": 1 },
   "appliances": [
-    {
-      "id": "a1",
-      "type": "CoffeeMachine",
-      "x": 1,
-      "y": 2,
-      "rotation": 90,
-      "state": {}
-    },
-    {
-      "id": "a2",
-      "type": "Grabber",
-      "x": 2,
-      "y": 2,
-      "rotation": 90,
-      "state": {}
-    },
-    {
-      "id": "a3",
-      "type": "CoffeeMachine",
-      "x": 3,
-      "y": 2,
-      "rotation": 0,
-      "state": {}
-    },
-    {
-      "id": "a4",
-      "type": "SmartGrabber",
-      "x": 4,
-      "y": 2,
-      "rotation": 90,
-      "state": {
-        "filter": "Coffee"
-      }
-    }
+    { "id": "a1", "applianceId": -1609758240, "type": "CoffeeMachine", "x": 0, "y": 0, "rotation": 0 },
+    { "id": "a2", "applianceId": -1029710921, "type": "Grabber", "x": 1, "y": 0, "rotation": 90 },
+    { "id": "a3", "applianceId": 1973114260, "type": "Belt", "x": 2, "y": 0, "rotation": 90 },
+    { "id": "a4", "applianceId": -1238047163, "type": "GrabberSmart", "x": 3, "y": 0, "rotation": 90,
+      "state": { "grabSpecificType": true } },
+    { "id": "a5", "applianceId": -1248669347, "type": "Countertop", "x": 4, "y": 0, "rotation": 0 },
+    { "id": "a6", "applianceId": -1609758240, "type": "CoffeeMachine", "x": 0, "y": 1, "rotation": 0 },
+    { "id": "a7", "applianceId": -331651461, "type": "GrabberRotatable", "x": 1, "y": 1, "rotation": 90,
+      "state": { "grabDirection": "Down" } }
   ]
 }

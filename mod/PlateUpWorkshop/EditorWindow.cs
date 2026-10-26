@@ -92,8 +92,16 @@ namespace KitchenLayoutEditor
             if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape)) { SetTool(Tool.None); return; }
             if (_tool == Tool.Paste || _tool == Tool.Place)
             {
-                if (Input.GetKeyDown(KeyCode.E)) { if (_tool == Tool.Paste) _pasteTurns = (_pasteTurns + 1) % 4; else _rotation = (_rotation + 90) % 360; }
-                if (Input.GetKeyDown(KeyCode.Q)) { if (_tool == Tool.Paste) _pasteTurns = (_pasteTurns + 3) % 4; else _rotation = (_rotation + 270) % 360; }
+                // R / scroll: rotate clockwise; Shift+R / scroll down: counter-clockwise.
+                int step = 0;
+                if (Input.GetKeyDown(KeyCode.R)) step = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 3 : 1;
+                if (Input.mouseScrollDelta.y > 0.1f) step = 1;
+                if (Input.mouseScrollDelta.y < -0.1f) step = 3;
+                if (step != 0)
+                {
+                    if (_tool == Tool.Paste) _pasteTurns = (_pasteTurns + step) % 4;
+                    else _rotation = (_rotation + 90 * step) % 360;
+                }
             }
             if (_hover == null) return;
             var (x, y) = _hover.Value;
@@ -279,7 +287,11 @@ namespace KitchenLayoutEditor
             var status = EditorChannel.Status;
             if (status == null) return;
             var results = status.Results;
-            if (results.Count == 0) return;
+            if (results.Count == 0)
+            {
+                if (_lastSequence < 0) _lastSequence = 0;
+                return;
+            }
             int newest = results.Max(r => r.Sequence);
             if (_lastSequence < 0 || newest < _lastSequence)
             {
@@ -327,8 +339,8 @@ namespace KitchenLayoutEditor
             var at = " (" + x + "," + y + ")";
             switch (_tool)
             {
-                case Tool.Place: return ApplianceCatalog.DisplayName(_selectedAppliance) + " " + _rotation + "°" + at + "  Q/E rotate";
-                case Tool.Paste: return "Paste x" + (_pasteTurns * 90) + "°" + at + "  Q/E rotate";
+                case Tool.Place: return ApplianceCatalog.DisplayName(_selectedAppliance) + " " + _rotation + "°" + at + "  R/scroll rotate";
+                case Tool.Paste: return "Paste x" + (_pasteTurns * 90) + "°" + at + "  R/scroll rotate";
                 case Tool.MoveTarget: return "Move selection to" + at;
                 default: return _tool + at;
             }
@@ -473,7 +485,7 @@ namespace KitchenLayoutEditor
             if (_selectedFile == null) return;
             if (GUILayout.Button("Apply as whole restaurant (removes everything else)")) ApplyFile(_selectedFile, true);
             if (GUILayout.Button("Apply at saved positions (merge)")) ApplyFile(_selectedFile, false);
-            if (GUILayout.Button("Paste as module (click a tile, Q/E rotate)")) LoadFileToClipboard(_selectedFile);
+            if (GUILayout.Button("Paste as module (click a tile, R rotates)")) LoadFileToClipboard(_selectedFile);
         }
 
         private void DrawOptions()

@@ -1,73 +1,70 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "PlateUp Layout Document",
+  "title": "PlateUp Layout Document (v2)",
+  "description": "x = world X, y = world Z (north is +y). rotation = facing in degrees clockwise from +y. Version 1 prototype files are still accepted by the editor and the mod.",
   "type": "object",
-  "required": [
-    "version",
-    "appliances"
-  ],
+  "required": ["version", "appliances"],
   "properties": {
-    "version": {
-      "const": 1
-    },
-    "name": {
-      "type": "string"
-    },
-    "origin": {
-      "type": "object",
-      "properties": {
-        "x": {
-          "type": "integer"
-        },
-        "y": {
-          "type": "integer"
+    "format": { "const": "plateup-layout" },
+    "version": { "enum": [1, 2] },
+    "kind": { "enum": ["restaurant", "module"] },
+    "name": { "type": "string" },
+    "bounds": { "$ref": "#/$defs/rect" },
+    "tiles": {
+      "type": "array",
+      "description": "Floor plan captured from the game (read-only background).",
+      "items": {
+        "type": "object",
+        "required": ["x", "y", "room", "placeable"],
+        "properties": {
+          "x": { "type": "integer" }, "y": { "type": "integer" },
+          "room": { "type": "integer", "description": "0 = outside the restaurant" },
+          "type": { "type": "string" },
+          "placeable": { "type": "boolean" }
         }
-      },
-      "required": [
-        "x",
-        "y"
-      ]
+      }
+    },
+    "walls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["x", "y", "dir"],
+        "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "dir": { "enum": ["E", "N"] } }
+      }
     },
     "appliances": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "id",
-          "type",
-          "x",
-          "y",
-          "rotation"
-        ],
+        "required": ["x", "y", "rotation"],
+        "anyOf": [{ "required": ["applianceId"] }, { "required": ["type"] }],
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "x": {
-            "type": "integer"
-          },
-          "y": {
-            "type": "integer"
-          },
-          "rotation": {
-            "type": "integer",
-            "enum": [
-              0,
-              90,
-              180,
-              270
-            ]
-          },
+          "id": { "type": "string" },
+          "applianceId": { "type": "integer", "description": "PlateUp GameDataObject ID (authoritative when non-zero)" },
+          "type": { "type": "string", "description": "Appliance code/name, used when applianceId is missing" },
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "rotation": { "enum": [0, 90, 180, 270] },
+          "layer": { "type": "string", "description": "Occupancy layer when not Default (e.g. Floor)" },
           "state": {
             "type": "object",
-            "additionalProperties": true
+            "properties": {
+              "grabDirection": { "enum": ["Up", "Down", "Left", "Right"], "description": "Rotating grabber target, relative to the appliance" },
+              "grabSpecificType": { "type": "boolean" },
+              "specificType": { "type": "integer", "description": "Smart grabber filter item ID" },
+              "specificComponents": { "type": "array", "items": { "type": "integer" } }
+            },
+            "additionalProperties": false
           }
         }
       }
     }
   },
-  "additionalProperties": false
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "required": ["minX", "minY", "maxX", "maxY"],
+      "properties": { "minX": { "type": "integer" }, "minY": { "type": "integer" }, "maxX": { "type": "integer" }, "maxY": { "type": "integer" } }
+    }
+  }
 }

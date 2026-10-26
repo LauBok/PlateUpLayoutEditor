@@ -504,6 +504,8 @@ namespace KitchenLayoutEditor
                 LayoutJson = layoutJson
             });
             while (Results.Count > 3) Results.RemoveAt(0);
+            // Only the newest result carries a layout, to keep the broadcast view data small.
+            for (int i = 0; i < Results.Count - 1; i++) Results[i].LayoutJson = null;
         }
     }
 }

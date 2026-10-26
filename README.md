@@ -1,25 +1,70 @@
 # PlateUp Layout Editor
 
-A planned bidirectional layout editor for PlateUp! (Windows/Steam).
+A Steam Workshop mod for **PlateUp!** (Windows) plus a browser editor for designing restaurant
+layouts and applying them in game: free appliance spawning, move / rotate / delete / copy / paste,
+whole-restaurant and module (sub-layout) import/export with rotation, grabber state preservation,
+and host-authoritative multiplayer.
 
-## Intended workflow
-1. Export an entire restaurant or a selected region from the game.
-2. Edit the exported layout in a browser.
-3. Preview the changes in-game.
-4. Apply them, including optional sandbox appliance spawning.
+## Status (be precise about what is proven)
 
-## Status
-**Scaffold only. No functional PlateUp integration yet.** The game ECS APIs, appliance IDs, state serialization, and multiplayer behavior must be verified against the installed game version before enabling changes to a live restaurant.
+| Part | Implemented | Compiled | Tested | Needs |
+|---|---|---|---|---|
+| Layout core (`src/LayoutCore`): file format, module extract, rotate/translate, apply planner with collision & replace rules | yes | yes (netstandard2.0) | 14 unit tests | – |
+| Browser editor (`editor/`) | yes | n/a | Node unit tests + headless Chromium smoke test | – |
+| Workshop mod (`mod/PlateUpWorkshop`) | yes | **only against reference stubs** | **not run in game** | Windows build against the real game + in-game test |
 
-## Safety principles
-- Keep walls, doors, and floors immutable in the first version.
-- Apply only during preparation, with a preview and explicit confirmation.
-- Snapshot before mutation; reject unsupported or occupied appliances until safe handling is implemented.
-- The host controls multiplayer mutations; synchronization requires testing.
-- Preserve smart-grabber filters and appliance orientations when supported.
+The mod has **not** been built against the real game assemblies or run in PlateUp yet; this
+environment has no copy of the game. Every game API it calls was taken from open-source mods that
+build against the real game (see `stubs/Evidence.md`), but only an in-game test can confirm the
+behaviour. Use a disposable solo save for the first test.
 
-## Project structure
-- `schema/`: portable layout document definition.
-- `mod/`: C# mod integration (to be implemented and tested).
-- `editor/`: browser-based editor (to be implemented).
-- `docs/`: integration plan and verification checklist.
+## Using it
+
+1. Subscribe/install **Harmony** (Workshop dependency; without it the editor still works for the host
+   and solo players, but other players cannot use it).
+2. Install this mod (see `mod/PlateUpWorkshop/README.md` to build it).
+3. In a restaurant, during preparation, press **F7**:
+   - **Place**: pick an appliance, click floor tiles (R / mouse wheel rotates). No money, no shop.
+   - **Delete / Rotate** tools act on the clicked tile. **Select** drags a rectangle; the Selection tab then
+     copies, deletes, rotates each appliance or the whole block, moves it by an offset or to a clicked
+     corner (entities are moved, so items on counters and grabber settings stay), or saves it as a module.
+   - **Paste** places the clipboard/module at the clicked tile with R to rotate.
+   - **Files**: export the restaurant, apply a layout as the whole restaurant (everything else is
+     removed) or merged at its saved positions, or paste a module. **Undo** reverts the last 10 changes.
+   - Files live in `%USERPROFILE%\AppData\LocalLow\It's Happening\PlateUp\LayoutEditor` (the game's
+     persistent data folder; "Open folder" opens it).
+4. Optional: open `editor/index.html` in a browser, import an exported restaurant (its floor plan and
+   walls are shown), edit, export, and copy the file into the folder above. "Write catalog.json" in
+   game produces the exact appliance list (including modded appliances) for the browser editor.
+
+### Rules applied in game
+- Only tiles inside the restaurant, not the front door tile. Immovable appliances are never removed.
+- An occupied target tile is replaced (default) or kept (Options → "Keep it").
+- Same appliance already on the target tile: kept, only facing/state updated.
+- Changes are allowed during preparation only, unless "Allow changes during the day" is enabled.
+- Saved state: rotating grabber direction, smart grabber filter. Appliance upgrades are separate
+  appliance IDs, so they are preserved by the ID itself.
+
+### Multiplayer
+All changes are executed by the host's simulation and replicate to clients through the game's normal
+view sync. Clients' editor windows send requests to the host through a custom view
+(`LayoutEditorView`); the host can turn client editing off in Options.
+
+## Layout file
+
+`schema/layout.schema.json`, example `schema/examples/coffee-line.json`. Coordinates are world tiles
+(`x` = world X, `y` = world Z, north up); `rotation` is the facing, clockwise from north. A module
+is the same format with `"kind": "module"` and coordinates relative to its `bounds`.
+
+## Repository
+
+- `src/LayoutCore` – game-independent logic (compiled into the mod), `tests/LayoutCore.Tests`.
+- `mod/PlateUpWorkshop` – the mod. `stubs/` – compile-only reference stubs for CI (never shipped).
+- `editor/` – browser editor (`index.html`, `editor-core.js`, generated `catalog.js`), `editor/test`.
+- `tools/gen_catalog.py` – regenerates `editor/catalog.js` from KitchenLib's MIT-licensed ID table.
+
+```bash
+dotnet test tests/LayoutCore.Tests
+dotnet build mod/PlateUpWorkshop -p:UseStubs=true   # compile check only
+node editor/test/editor-core.test.mjs
+```
