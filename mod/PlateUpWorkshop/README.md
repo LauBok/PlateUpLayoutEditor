@@ -18,3 +18,13 @@ The DLL should be copied to `mod/PlateUpWorkshop/content/` after a successful bu
 
 ## Next step
 Confirm that the mod appears in the game's mod menu and the activation log is written. Then add a read-only ECS appliance query and a controlled spawn command.
+
+## Experimental ECS spawn probe (source added)
+
+The `BlueprintSpawnProbe` uses the game's `CCreateAppliance`, `CPosition`, `CLetter`, `CLetterBlueprint`, and `CShopEntity` components. The pattern was cross-checked against [PlateUpEnhancementMod's SpawnItemsHandler](https://github.com/WillWilli/PlateUpEnhancementMod/blob/master/Willi.PlateUpEnhancementMod/EventHandlers/SpawnItemsHandler.cs).
+
+On first initialization, it creates a `spawn-probe.txt` beside the compiled DLL. The default `applianceId=0` disables the probe. To opt in, set a **verified** numeric appliance ID, restart the game, and press **F8** in a disposable **solo** restaurant. `worldX` and `worldZ` control the request location. A successful request should produce a **free blueprint**, not a placed appliance. It is not an Apply implementation.
+
+**Not yet compiled or tested. Do not use in multiplayer.** There is no host-authority check, phase guard, bounds validation, or rollback in the probe. Invalid appliance IDs or positions may produce unexpected results. Never enable it on a valued save.
+
+This is a limited, deliberate first game mutation experiment. After verifying loading and blueprint creation, implement authoritative ECS placement with a verified entity lifecycle rather than guessing at game internals.
