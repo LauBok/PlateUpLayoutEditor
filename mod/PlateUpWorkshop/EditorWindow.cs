@@ -314,6 +314,13 @@ namespace KitchenLayoutEditor
             _lastSequence = newest;
         }
 
+        private void ReportProgress(string message)
+        {
+            // Progress lines replace each other instead of filling the log.
+            if (_log.Count > 0 && _log[_log.Count - 1].StartsWith("Rendering thumbnails")) _log.RemoveAt(_log.Count - 1);
+            Log(message);
+        }
+
         private void Log(string message)
         {
             _log.Add(message);
@@ -469,6 +476,10 @@ namespace KitchenLayoutEditor
             if (GUILayout.Button("Open folder")) Application.OpenURL("file://" + LayoutFiles.Folder);
             if (GUILayout.Button("Write catalog.json")) { LayoutFiles.WriteCatalog(); Log("Wrote catalog.json for the browser editor"); }
             GUILayout.EndHorizontal();
+            GUI.enabled = !ThumbnailExporter.Running;
+            if (GUILayout.Button("Export thumbnails for the browser editor"))
+                StartCoroutine(ThumbnailExporter.Export(ReportProgress));
+            GUI.enabled = true;
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("Name", GUILayout.Width(40));

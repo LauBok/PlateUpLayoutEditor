@@ -35,7 +35,9 @@ behaviour. Use a disposable solo save for the first test.
      persistent data folder; "Open folder" opens it).
 4. Optional: open `editor/index.html` in a browser, import an exported restaurant (its floor plan and
    walls are shown), edit, export, and copy the file into the folder above. "Write catalog.json" in
-   game produces the exact appliance list (including modded appliances) for the browser editor.
+   game produces the exact appliance list (including modded appliances) for the browser editor, and
+   "Export thumbnails" renders every appliance model to `thumbnails.json`; import that file once
+   in the browser editor to see pictures instead of coloured name tiles (it is remembered).
 
 ### Rules applied in game
 - Only tiles inside the restaurant, not the front door tile. Immovable appliances are never removed.

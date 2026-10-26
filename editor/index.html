@@ -18,7 +18,8 @@ input[type=file]{display:none}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
 .panel h3{margin:4px 0 8px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 #palette{height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px;margin-top:6px}
-#palette div{padding:4px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#palette div{display:flex;align-items:center;gap:8px;padding:3px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#palette .sw{flex:none;width:28px;height:28px;border-radius:5px;display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff;background-size:contain;background-repeat:no-repeat;background-position:center}
 #palette div:hover{background:var(--panel2)}#palette div.on{background:#5a4a20}
 .tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
@@ -36,7 +37,7 @@ textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);borde
   <strong>PlateUp Layout Editor</strong>
   <input id="name" value="My Restaurant" aria-label="Layout name" size="18">
   <button id="new">New</button>
-  <button id="importBtn" title="Restaurant layout, module or catalog.json">Import…</button>
+  <button id="importBtn" title="Restaurant layout, module, catalog.json or thumbnails.json">Import…</button>
   <input id="file" type="file" accept=".json,application/json">
   <button id="exportBtn">Export restaurant</button>
   <button id="exportModule" title="Save the selected rectangle as a reusable module">Export selection as module</button>
@@ -60,6 +61,8 @@ textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);borde
       <button id="delete" title="Delete">Delete</button>
       <button id="undo" title="Ctrl+Z">Undo</button>
       <button id="redo" title="Ctrl+Y">Redo</button>
+      <label class="muted">Zoom <select id="zoom"><option>36</option><option>44</option><option selected>56</option><option>72</option><option>96</option></select></label>
+      <label class="muted"><input type="checkbox" id="labels" checked> Names</label>
     </div>
     <div id="stage"><canvas id="grid" aria-label="Layout grid"></canvas></div>
     <div id="status" role="status"></div>
@@ -83,7 +86,10 @@ textarea{width:100%;height:90px;background:var(--panel2);color:var(--text);borde
 const C = globalThis.LayoutCore;
 const $ = (id) => document.getElementById(id);
 const canvas = $('grid'), ctx = canvas.getContext('2d');
-const CELL = 34;
+let cell = 56;
+const ICON_DB = 'plateup-layout-editor', ICON_STORE = 'thumbnails';
+let thumbs = new Map();            // appliance id -> loaded HTMLImageElement
+let thumbUrls = {};                // appliance id -> data URL (for the palette)
 
 // ---------- state ----------
 let catalog = (globalThis.PLATEUP_APPLIANCES || []).slice();
@@ -128,12 +134,12 @@ function restore(json) { doc = JSON.parse(json); selected.clear(); floor = floor
 
 // ---------- geometry ----------
 const cols = () => grid.maxX - grid.minX + 1, rows = () => grid.maxY - grid.minY + 1;
-const toCanvas = (x, y) => [(x - grid.minX) * CELL, (grid.maxY - y) * CELL];
+const toCanvas = (x, y) => [(x - grid.minX) * cell, (grid.maxY - y) * cell];
 function toTile(ev) {
   const r = canvas.getBoundingClientRect();
   const cx = (ev.clientX - r.left) * (canvas.width / r.width) / devicePixelRatio;
   const cy = (ev.clientY - r.top) * (canvas.height / r.height) / devicePixelRatio;
-  return [grid.minX + Math.floor(cx / CELL), grid.maxY - Math.floor(cy / CELL)];
+  return [grid.minX + Math.floor(cx / cell), grid.maxY - Math.floor(cy / cell)];
 }
 const inGrid = (x, y) => x >= grid.minX && x <= grid.maxX && y >= grid.minY && y <= grid.maxY;
 function placeable(x, y) {
@@ -151,7 +157,7 @@ function sync() {
   render(); renderInspector();
 }
 function resizeCanvas() {
-  const w = cols() * CELL, h = rows() * CELL;
+  const w = cols() * cell, h = rows() * cell;
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   canvas.width = w * devicePixelRatio; canvas.height = h * devicePixelRatio;
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
@@ -166,21 +172,21 @@ function render() {
       const t = floor.get(x + ',' + y);
       color = !t || t.room === 0 ? '#161e27' : (t.placeable ? ((x + y) % 2 ? '#2f4152' : '#2a3a4a') : '#3a2f2f');
     } else color = (x + y) % 2 ? '#2f4152' : '#2a3a4a';
-    ctx.fillStyle = color; ctx.fillRect(px, py, CELL, CELL);
-    ctx.strokeStyle = '#3d4f63'; ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, CELL - 1, CELL - 1);
+    ctx.fillStyle = color; ctx.fillRect(px, py, cell, cell);
+    ctx.strokeStyle = '#3d4f63'; ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, cell - 1, cell - 1);
   }
   // walls
   ctx.strokeStyle = '#d9e2ec'; ctx.lineWidth = 3;
   for (const w of doc.walls || []) {
     const [px, py] = toCanvas(w.x, w.y);
     ctx.beginPath();
-    if (w.dir === 'E') { ctx.moveTo(px + CELL, py); ctx.lineTo(px + CELL, py + CELL); }
-    else { ctx.moveTo(px, py); ctx.lineTo(px + CELL, py); }
+    if (w.dir === 'E') { ctx.moveTo(px + cell, py); ctx.lineTo(px + cell, py + cell); }
+    else { ctx.moveTo(px, py); ctx.lineTo(px + cell, py); }
     ctx.stroke();
   }
   // axis labels
   ctx.fillStyle = 'rgba(159,176,194,.55)'; ctx.font = '9px system-ui';
-  for (let x = grid.minX; x <= grid.maxX; x++) { const [px] = toCanvas(x, grid.minY); ctx.fillText(x, px + 2, rows() * CELL - 2); }
+  for (let x = grid.minX; x <= grid.maxX; x++) { const [px] = toCanvas(x, grid.minY); ctx.fillText(x, px + 2, rows() * cell - 2); }
   for (let y = grid.minY; y <= grid.maxY; y++) { const [, py] = toCanvas(grid.minX, y); ctx.fillText(y, 2, py + 10); }
   // appliances (floor layer first)
   const ordered = doc.appliances.slice().sort((a, b) => (C.layerOf(a) === 'Default') - (C.layerOf(b) === 'Default'));
@@ -195,7 +201,7 @@ function render() {
     const r = C.rect(drag.x0, drag.y0, drag.x1, drag.y1);
     const [px, py] = toCanvas(r.minX, r.maxY);
     ctx.strokeStyle = '#ffc35a'; ctx.setLineDash([5, 4]); ctx.lineWidth = 2;
-    ctx.strokeRect(px + 1, py + 1, (r.maxX - r.minX + 1) * CELL - 2, (r.maxY - r.minY + 1) * CELL - 2);
+    ctx.strokeRect(px + 1, py + 1, (r.maxX - r.minX + 1) * cell - 2, (r.maxY - r.minY + 1) * cell - 2);
     ctx.setLineDash([]);
   }
   if (drag && drag.kind === 'move' && (drag.dx || drag.dy)) {
@@ -205,31 +211,85 @@ function render() {
 function drawAppliance(a, mode) {
   if (!inGrid(a.x, a.y)) return;
   const [px, py] = toCanvas(a.x, a.y);
+  const entry = entryOf(a);
   const floorLayer = C.layerOf(a) !== 'Default';
-  const inset = floorLayer ? 1 : 4;
-  ctx.fillStyle = mode === 'ghost' ? 'rgba(90,220,255,.45)' : mode === 'bad' ? 'rgba(255,80,80,.5)' : floorLayer ? '#3d5a4a' : '#4f7fa3';
-  ctx.fillRect(px + inset, py + inset, CELL - 2 * inset, CELL - 2 * inset);
-  if (mode === 'sel') { ctx.strokeStyle = '#ffc35a'; ctx.lineWidth = 2.5; ctx.strokeRect(px + 2, py + 2, CELL - 4, CELL - 4); }
-  // facing arrow
-  const cx = px + CELL / 2, cy = py + CELL / 2, ang = (a.rotation || 0) * Math.PI / 180;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
-  ctx.fillStyle = '#ffcb6b'; ctx.beginPath(); ctx.moveTo(0, -CELL / 2 + 3); ctx.lineTo(-5, -CELL / 2 + 10); ctx.lineTo(5, -CELL / 2 + 10); ctx.fill();
+  const inset = floorLayer ? 1 : Math.max(2, Math.round(cell * 0.06));
+  const size = cell - 2 * inset;
+  const img = thumbs.get(a.applianceId || (entry && entry.id));
+  const cat = categoryOf(entry ? entry.code + ' ' + entry.name : a.type);
+  // tile background: category colour (or a light plate behind a thumbnail)
+  ctx.fillStyle = img ? 'rgba(232,237,243,.16)' : cat.color;
+  roundRect(px + inset, py + inset, size, size, Math.max(3, cell * 0.12)); ctx.fill();
+  if (img) {
+    const pad = cell * 0.04;
+    ctx.drawImage(img, px + inset + pad, py + inset + pad, size - 2 * pad, size - 2 * pad);
+  }
+  if (mode === 'ghost' || mode === 'bad') {
+    ctx.fillStyle = mode === 'ghost' ? 'rgba(90,220,255,.45)' : 'rgba(255,80,80,.55)';
+    roundRect(px + inset, py + inset, size, size, Math.max(3, cell * 0.12)); ctx.fill();
+  }
+  if (mode === 'sel') { ctx.strokeStyle = '#ffc35a'; ctx.lineWidth = 3; roundRect(px + 2, py + 2, cell - 4, cell - 4, Math.max(3, cell * 0.12)); ctx.stroke(); }
+  // facing arrow on the tile edge the appliance faces
+  const cx = px + cell / 2, cy = py + cell / 2, ah = Math.max(5, cell * 0.14);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate((a.rotation || 0) * Math.PI / 180);
+  ctx.fillStyle = '#ffcb6b'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, -cell / 2 + 1); ctx.lineTo(-ah * 0.8, -cell / 2 + 1 + ah); ctx.lineTo(ah * 0.8, -cell / 2 + 1 + ah); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
   if (a.state && a.state.grabDirection) {
     const rel = { Up: 0, Right: 90, Down: 180, Left: 270 }[a.state.grabDirection] || 0;
     ctx.save(); ctx.translate(cx, cy); ctx.rotate((a.rotation + rel) * Math.PI / 180);
-    ctx.strokeStyle = '#7dffa0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -CELL / 2 + 6); ctx.stroke(); ctx.restore();
+    ctx.strokeStyle = '#7dffa0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -cell / 2 + ah + 2); ctx.stroke(); ctx.restore();
   }
-  ctx.fillStyle = '#fff'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
-  const label = abbreviate(nameOf(a));
-  ctx.fillText(label, cx, cy + 4, CELL - 4);
+  if (a.state && a.state.specificType) {   // smart filter set
+    ctx.fillStyle = '#7dffa0'; ctx.beginPath(); ctx.arc(px + cell - inset - 5, py + inset + 5, 3.5, 0, 7); ctx.fill();
+  }
+  if ($('labels').checked && (!img || cell >= 56)) drawLabel(nameOf(a), px, py, !!img);
+  else if (!img) drawLabel(nameOf(a), px, py, false);
+}
+function drawLabel(name, px, py, overImage) {
+  const font = Math.max(8, Math.min(13, Math.round(cell / 5.2)));
+  ctx.font = '600 ' + font + 'px system-ui'; ctx.textAlign = 'center';
+  const lines = wrap(name, cell - 6, overImage ? 1 : 3);
+  const lh = font + 1;
+  let y = overImage ? py + cell - 4 - (lines.length - 1) * lh : py + cell / 2 - ((lines.length - 1) * lh) / 2 + font / 3;
+  if (overImage) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(px + 2, y - font, cell - 4, lh * lines.length + 2); }
+  ctx.fillStyle = '#fff';
+  for (const line of lines) { ctx.fillText(line, px + cell / 2, y); y += lh; }
   ctx.textAlign = 'start';
 }
-function abbreviate(name) {
-  const words = String(name).replace(/([a-z])([A-Z])/g, '$1 $2').split(/\s+/).filter(Boolean);
-  if (words.length === 1) return words[0].slice(0, 6);
-  return words.map((w) => w[0]).join('').slice(0, 4).toUpperCase();
+function wrap(text, width, maxLines) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const next = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(next).width <= width || !cur) cur = next; else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] += '…'; }
+  return lines.map((l) => { while (l.length > 2 && ctx.measureText(l).width > width) l = l.slice(0, -2) + '…'; return l; });
 }
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// Colour families so tiles are recognisable without thumbnails.
+const CATEGORIES = [
+  [/grabber|teleporter/i, '#c77d2e', 'G'],
+  [/belt|convey|mixer|combiner|portioner/i, '#6b7785', 'B'],
+  [/hob|oven|stove|microwave|fryer|coffee|cooker|griddle|kettle|cauldron|machine/i, '#b84a3c', 'H'],
+  [/sink|dish ?wash|wash/i, '#3f7fc0', 'W'],
+  [/table|chair|booth|bar\b|seat/i, '#3f8f5a', 'T'],
+  [/counter|workstation|prep|cutting|board/i, '#8a6a45', 'C'],
+  [/source|provider|dispenser|fridge|freezer|stack|cabinet|cupboard|crate|box|tray/i, '#7d58b3', 'S'],
+  [/bin\b|bin$|rubbish|trash|compactor/i, '#555c66', 'X'],
+  [/plant|sign|art|light|decor|statue|rug|painting|neon/i, '#b05a8c', 'D'],
+];
+function categoryOf(text) {
+  for (const [re, color, glyph] of CATEGORIES) if (re.test(text || '')) return { color, glyph };
+  return { color: '#4f7fa3', glyph: '•' };
+}
+function entryOf(a) { return byId.get(a.applianceId) || byCode.get(String(a.type).toLowerCase()); }
 
 // ---------- palette ----------
 function renderPalette() {
@@ -239,13 +299,18 @@ function renderPalette() {
     const hay = (e.name + ' ' + e.code).toLowerCase();
     if (!words.every((w) => hay.includes(w))) continue;
     const d = document.createElement('div');
-    d.textContent = e.name; d.title = e.code + ' (' + e.id + ')';
+    const sw = document.createElement('span'); sw.className = 'sw';
+    if (thumbUrls[e.id]) sw.style.backgroundImage = 'url(' + thumbUrls[e.id] + ')';
+    else { const c = categoryOf(e.code + ' ' + e.name); sw.style.backgroundColor = c.color; sw.textContent = c.glyph; }
+    const label = document.createElement('span'); label.textContent = e.name;
+    d.append(sw, label); d.title = e.code + ' (' + e.id + ')';
     d.setAttribute('role', 'option');
     if (e.id === paletteId) d.className = 'on';
     d.onclick = () => { paletteId = e.id; setTool('place'); renderPalette(); };
     list.append(d);
   }
-  $('catalogInfo').textContent = catalog.length + ' appliances from ' + catalogSource + '.';
+  $('catalogInfo').textContent = catalog.length + ' appliances from ' + catalogSource + '. ' +
+    (thumbs.size ? thumbs.size + ' thumbnails loaded.' : 'No thumbnails yet: in game press F7 → Files → "Export thumbnails", then Import… thumbnails.json here.');
 }
 
 // ---------- inspector ----------
@@ -453,6 +518,11 @@ $('file').onchange = async (ev) => {
   if (!f) return;
   try {
     const data = JSON.parse(await f.text());
+    if (data && data.format === 'plateup-thumbnails') {
+      const n = await loadThumbnails(data.images || {});
+      saveThumbnails(data.images || {});
+      return notice('Loaded ' + n + ' thumbnails');
+    }
     if (Array.isArray(data)) {
       // catalog.json written by the mod: [{id, code, name, layer, ...}]
       if (!data.every((e) => Number.isInteger(e.id) && typeof e.name === 'string')) throw new Error('Unrecognised catalog');
@@ -521,7 +591,52 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-indexCatalog(); renderPalette(); sync();
+// ---------- thumbnails ----------
+function loadThumbnails(images) {
+  const jobs = Object.entries(images).map(([id, url]) => new Promise((resolve) => {
+    if (typeof url !== 'string' || !url.startsWith('data:image/')) return resolve(false);
+    const img = new Image();
+    img.onload = () => { thumbs.set(Number(id), img); thumbUrls[id] = url; resolve(true); };
+    img.onerror = () => resolve(false);
+    img.src = url;
+  }));
+  return Promise.all(jobs).then((r) => { renderPalette(); render(); return r.filter(Boolean).length; });
+}
+function openIconDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(ICON_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(ICON_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveThumbnails(images) {
+  try {
+    const db = await openIconDb();
+    db.transaction(ICON_STORE, 'readwrite').objectStore(ICON_STORE).put(images, 'images');
+  } catch (e) { /* storage unavailable: thumbnails last for this session only */ }
+}
+async function restoreThumbnails() {
+  try {
+    const db = await openIconDb();
+    const images = await new Promise((resolve) => {
+      const req = db.transaction(ICON_STORE, 'readonly').objectStore(ICON_STORE).get('images');
+      req.onsuccess = () => resolve(req.result); req.onerror = () => resolve(null);
+    });
+    if (images) await loadThumbnails(images);
+  } catch (e) { /* no stored thumbnails */ }
+}
+
+$('zoom').onchange = () => { cell = +$('zoom').value; render(); };
+$('labels').onchange = () => render();
+canvas.addEventListener('mousemove', (ev) => {
+  if (drag || paste) return;
+  const [x, y] = toTile(ev);
+  const a = topAt(x, y);
+  canvas.title = a ? nameOf(a) + '  (' + x + ', ' + y + ')  facing ' + a.rotation + '°' : '(' + x + ', ' + y + ')';
+});
+
+indexCatalog(); renderPalette(); sync(); restoreThumbnails();
 notice('Design here, export, then apply in game with F7 → Files. Modules (exported selections) paste anywhere with rotation.');
 })();
 </script>

@@ -25,6 +25,7 @@ against the real PlateUp! assemblies and use each API the same way. "UFK" = gith
 | `Session.CurrentGameNetworkMode`, `GameNetworkMode.Client/Host` | MoveLayoutFeatures `Main.cs` |
 | `ResponsiveObjectView`, `ResponsiveViewSystemBase`, `SendUpdate`, `ApplyUpdates`, `IViewData.ICheckForChanges`, `IResponseData`, `CLinkedView`, `CRequiresView{ViewMode.Screen}`, `CPersistThroughSceneChanges`, `CDoNotPersist`, `InputSourceIdentifier.Identifier` | DecorOnDemand `SpawnRequestView.cs`; DragNDropDesigner `Views/MouseInputView.cs` |
 | Harmony prefix on `LocalViewRouter.GetPrefab(ViewType view_type)` for a custom view type | DecorOnDemand `Patches/LocalViewRouter_Patch.cs` |
+| `Snapshot.RenderPrefabToTexture(...)` → `SnapshotTexture.Snapshot` (Texture2D), `_NightFade` shader global | DecorOnDemand `Utils/PrefabSnapshotUtils.cs` (`GetApplianceSnapshot`) |
 | Harmony comes from the "Harmony" Workshop mod | OndrejNepozitek/KitchenDesigner `MissingDependenciesGUIManager.cs` |
 
 Exact member types that are not visible from usage (for example whether `EntityQuery` is a class
