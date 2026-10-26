@@ -107,6 +107,7 @@ namespace KitchenLayoutEditor
         private List<LiveAppliance> Snapshot()
         {
             var list = new List<LiveAppliance>();
+            var bounds = PlayableBounds();
             using (var entities = _appliances.ToEntityArray(Allocator.Temp))
             {
                 foreach (var entity in entities)
@@ -114,7 +115,8 @@ namespace KitchenLayoutEditor
                     if (!IsLayoutAppliance(entity)) continue;
                     var appliance = EntityManager.GetComponentData<CAppliance>(entity);
                     var position = EntityManager.GetComponentData<CPosition>(entity);
-                    if (GetTile(position.Position).RoomID == 0) continue;
+                    // Hidden/held appliances sit far outside the map; never query tiles there.
+                    if (!bounds.Contains(position.Position) || GetTile(position.Position).RoomID == 0) continue;
                     var (x, y) = GridMath.ToTile(position.Position);
                     list.Add(new LiveAppliance
                     {
@@ -363,8 +365,9 @@ namespace KitchenLayoutEditor
 
             var rules = new Rules(this);
             var movingKeys = new HashSet<long>(moving.Select(m => m.Info.Key));
-            var occupied = live.Where(l => !movingKeys.Contains(l.Info.Key))
-                .Select(l => (l.Info.X, l.Info.Y, l.Info.Layer)).ToHashSet();
+            // Not Enumerable.ToHashSet: Unity's Mono class library may not have it.
+            var occupied = new HashSet<(int, int, string)>(live.Where(l => !movingKeys.Contains(l.Info.Key))
+                .Select(l => (l.Info.X, l.Info.Y, l.Info.Layer)));
             foreach (var p in placed)
             {
                 if (!rules.CanPlace(p.X, p.Y, out var reason)) { Respond(input, command, false, "Cannot move to " + p.X + "," + p.Y + ": " + reason); return; }

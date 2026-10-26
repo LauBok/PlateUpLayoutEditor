@@ -25,15 +25,19 @@ namespace KitchenLayoutEditor
         private static Dictionary<int, CatalogEntry>? _byId;
         private static Dictionary<string, CatalogEntry>? _byName;
 
+        private static readonly List<CatalogEntry> Empty = new List<CatalogEntry>();
+        private static readonly Dictionary<int, CatalogEntry> EmptyById = new Dictionary<int, CatalogEntry>();
+        private static readonly Dictionary<string, CatalogEntry> EmptyByName = new Dictionary<string, CatalogEntry>();
+
         public static IReadOnlyList<CatalogEntry> Entries
         {
-            get { EnsureLoaded(); return _entries!; }
+            get { EnsureLoaded(); return _entries ?? Empty; }
         }
 
         public static bool TryGet(int id, out CatalogEntry entry)
         {
             EnsureLoaded();
-            return _byId!.TryGetValue(id, out entry!);
+            return (_byId ?? EmptyById).TryGetValue(id, out entry!);
         }
 
         public static string DisplayName(int id) => TryGet(id, out var e) ? e.Name : "#" + id;
@@ -43,8 +47,8 @@ namespace KitchenLayoutEditor
         {
             EnsureLoaded();
             CatalogEntry? entry = null;
-            if (record.ApplianceId != 0) _byId!.TryGetValue(record.ApplianceId, out entry);
-            if (entry == null && !string.IsNullOrEmpty(record.Type)) _byName!.TryGetValue(Normalize(record.Type), out entry);
+            if (record.ApplianceId != 0) (_byId ?? EmptyById).TryGetValue(record.ApplianceId, out entry);
+            if (entry == null && !string.IsNullOrEmpty(record.Type)) (_byName ?? EmptyByName).TryGetValue(Normalize(record.Type), out entry);
             if (entry == null) { record.ApplianceId = 0; return; }
             record.ApplianceId = entry.Id;
             if (string.IsNullOrEmpty(record.Type)) record.Type = entry.Code;
@@ -57,6 +61,8 @@ namespace KitchenLayoutEditor
         {
             if (_entries != null) return;
             var list = new List<CatalogEntry>();
+            // Game data not loaded yet: behave as an empty catalog and try again next time.
+            if (GameData.Main == null) return;
             foreach (var appliance in GameData.Main.Get<Appliance>())
             {
                 if (appliance == null) continue;

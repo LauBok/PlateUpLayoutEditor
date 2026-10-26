@@ -24,6 +24,8 @@ namespace KitchenLayoutEditor
         public class UpdateView : ResponsiveViewSystemBase<ViewData, ResponseData>, IModSystem
         {
             private EntityQuery _views;
+            private string? _payload;
+            private (int, bool, bool, bool) _payloadKey;
 
             protected override void Initialise()
             {
@@ -36,7 +38,16 @@ namespace KitchenLayoutEditor
                 // Without the Harmony prefab patch the game could not instantiate this view type.
                 if (!Main.NetworkingAvailable) return;
                 EnsureView();
-                var payload = Wire.Write(EditorChannel.LocalHostStatus());
+                var status = EditorChannel.LocalHostStatus();
+                int newest = status.Results.Count == 0 ? 0 : status.Results[status.Results.Count - 1].Sequence;
+                var key = (newest, status.ClientsAllowed, status.InKitchen, status.IsPreparation);
+                if (_payload == null || !key.Equals(_payloadKey))
+                {
+                    // Results can carry a whole exported layout, so only serialise when something changed.
+                    _payload = Wire.Write(status);
+                    _payloadKey = key;
+                }
+                var payload = _payload;
                 using (var views = _views.ToComponentDataArray<CLinkedView>(Allocator.Temp))
                 {
                     foreach (var view in views)
