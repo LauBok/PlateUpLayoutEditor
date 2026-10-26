@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    COMPILE-CHECK ONLY. Minimal signatures of the PlateUp! / Unity.Entities APIs used by the mod,
+    reconstructed from open-source PlateUp mods that compile against the real game (see Evidence.md).
+    A mod built against these stubs must NOT be shipped: type locations differ from the real
+    assemblies. Release builds reference the installed game (PlateUp_Data/Managed).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <NoWarn>CS0649;CS0169;CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

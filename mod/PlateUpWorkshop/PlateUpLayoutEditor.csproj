@@ -1,20 +1,52 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Release build (Windows, PlateUp installed through Steam):
+        dotnet build -c Release
+      Yariazen.PlateUp.ModBuildUtilities finds the game and references PlateUp_Data/Managed/*.dll
+      and installed Workshop mods (Harmony). Override with -p:GamePath="...\PlateUp\PlateUp".
+      Output: content/PlateUpLayoutEditor-Workshop.dll (upload the folder that contains content/).
+
+    Compile check without the game (CI / Linux):
+        dotnet build -p:UseStubs=true
+      Builds against stubs/PlateUp.ReferenceStubs. That DLL must never be shipped.
+  -->
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
     <NoWarn>CS0114</NoWarn>
     <AssemblyName>PlateUpLayoutEditor-Workshop</AssemblyName>
-    <PlateUpGameFolder Condition="'$(PlateUpGameFolder)' == ''">C:\Program Files (x86)\Steam\steamapps\common\PlateUp\PlateUp</PlateUpGameFolder>
+    <RootNamespace>KitchenLayoutEditor</RootNamespace>
+    <Configurations>Release;Debug</Configurations>
+    <WorkshopDir>$(MSBuildProjectDirectory)\content</WorkshopDir>
+    <EnableModDeployLocal Condition="'$(EnableModDeployLocal)' == ''">false</EnableModDeployLocal>
+    <UseStubs Condition="'$(UseStubs)' == ''">false</UseStubs>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="content\**" />
+    <None Remove="content\**" />
+    <!-- The game-independent core is compiled into the mod so the Workshop item is a single DLL. -->
+    <Compile Include="..\..\src\LayoutCore\*.cs" Link="Core\%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="MessagePack.Annotations" Version="2.4.59" />
-    <PackageReference Include="Yariazen.PlateUp.ModBuildUtilities" Version="1.6.16" />
-    <Reference Include="KitchenLib">
-      <HintPath>$(PlateUpGameFolder)\Mods\KitchenLib\content\KitchenLib-Workshop.dll</HintPath>
-    </Reference>
   </ItemGroup>
-  <Target Name="CopyWorkshopDll" AfterTargets="Build">
-    <MakeDir Directories="$(MSBuildProjectDirectory)\content" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\content" />
+
+  <ItemGroup Condition="'$(UseStubs)' != 'true'">
+    <PackageReference Include="Yariazen.PlateUp.ModBuildUtilities" Version="1.13.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseStubs)' == 'true'">
+    <ProjectReference Include="..\..\stubs\PlateUp.ReferenceStubs\PlateUp.ReferenceStubs.csproj" />
+    <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" PrivateAssets="all" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="2.2.2" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <Target Name="CopyWorkshopDll" AfterTargets="Build" Condition="'$(UseStubs)' != 'true'">
+    <MakeDir Directories="$(WorkshopDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(WorkshopDir)" />
   </Target>
 </Project>

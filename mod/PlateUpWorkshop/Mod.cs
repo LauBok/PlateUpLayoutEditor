@@ -1,39 +1,85 @@
+using System;
 using System.Reflection;
-using KitchenLib;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
+using HarmonyLib;
+using Kitchen;
 using KitchenMods;
 using UnityEngine;
 
-namespace KitchenPlateUpLayoutEditor
+namespace KitchenLayoutEditor
 {
-    /// <summary>
-    /// Actual Workshop mod entry point, based on the public PlateUpModTemplate.
-    /// First milestone: confirm loader activation. ECS mutation is not yet enabled.
-    /// </summary>
-    public sealed class Mod : BaseMod, IModSystem
+    /// <summary>Workshop entry point, discovered by the game's own mod loader (no KitchenLib required).</summary>
+    public class Main : IModInitializer
     {
         public const string MOD_GUID = "LauBok.PlateUp.LayoutEditor";
-        public const string MOD_NAME = "PlateUp Layout Editor";
-        public const string MOD_AUTHOR = "LauBok";
-        public const string MOD_VERSION = "0.1.0";
-        public const string MOD_GAMEVERSION = ">=1.1.3";
+        public const string MOD_NAME = "Layout Editor";
+        public const string MOD_VERSION = "0.2.0";
 
-        public Mod() : base(MOD_GUID, MOD_NAME, MOD_AUTHOR, MOD_VERSION,
-            MOD_GAMEVERSION, Assembly.GetExecutingAssembly()) { }
+        internal static readonly ViewType EditorViewType = (ViewType)StableHash("LauBok.LayoutEditor.View");
 
-        protected override void OnInitialise()
+        /// <summary>Host setting: whether requests from other players are executed.</summary>
+        internal static bool ClientsAllowed
         {
-            Debug.Log("[PlateUp Layout Editor] Workshop mod loaded.");
-            BlueprintSpawnProbe.Initialize();
+            get => EditorSettings.Current.AllowClients;
         }
 
-        protected override void OnUpdate()
+        private static GameObject? _gui;
+
+        /// <summary>True when the Harmony Workshop mod is present and the network view patch is active.
+        /// Without it the editor still works for the host / solo player, but not for clients.</summary>
+        internal static bool NetworkingAvailable { get; private set; }
+
+        public Main()
         {
-            BlueprintSpawnProbe.Update();
+            if (NetworkingAvailable) return;
+            try
+            {
+                PatchWithHarmony();
+                NetworkingAvailable = true;
+            }
+            catch (Exception e)
+            {
+                LogWarning("Harmony is not available (" + e.GetType().Name + "); multiplayer client editing is disabled. " +
+                           "Subscribe to the 'Harmony' Workshop mod to enable it.");
+            }
         }
 
-        protected override void OnPostActivate(KitchenMods.Mod mod)
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void PatchWithHarmony()
         {
-            Debug.Log("[PlateUp Layout Editor] Workshop mod activated.");
+            var harmony = new Harmony(MOD_GUID);
+            harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
+
+        public void PostActivate(KitchenMods.Mod mod)
+        {
+            LogInfo("v" + MOD_VERSION + " loaded. Press F7 in a restaurant to open the editor.");
+            EditorSettings.Load();
+            if (_gui == null)
+            {
+                _gui = new GameObject("LayoutEditorWindow");
+                UnityEngine.Object.DontDestroyOnLoad(_gui);
+                _gui.AddComponent<EditorWindow>();
+            }
+        }
+
+        public void PreInject() { }
+
+        public void PostInject() { }
+
+        private static int StableHash(string text)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(text));
+                return BitConverter.ToInt32(bytes, 0);
+            }
+        }
+
+        internal static void LogInfo(string message) => Debug.Log("[" + MOD_NAME + "] " + message);
+        internal static void LogWarning(string message) => Debug.LogWarning("[" + MOD_NAME + "] " + message);
+        internal static void LogError(string message) => Debug.LogError("[" + MOD_NAME + "] " + message);
     }
 }

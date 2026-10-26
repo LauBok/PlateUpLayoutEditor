@@ -1,0 +1,18 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Core tests
+        run: dotnet test tests/LayoutCore.Tests
+      - name: Mod compile check (reference stubs, not shippable)
+        run: dotnet build mod/PlateUpWorkshop -p:UseStubs=true
+      - name: Editor tests
+        run: node editor/test/editor-core.test.mjs
