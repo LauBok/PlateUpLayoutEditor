@@ -22,10 +22,14 @@ namespace KitchenPlateUpLayoutEditor
 
         protected override void OnInitialise()
         {
-            Debug.Log("[PlateUp Layout Editor] Workshop mod loaded. Game integration pending.");
+            Debug.Log("[PlateUp Layout Editor] Workshop mod loaded.");
+            BlueprintSpawnProbe.Initialize();
         }
 
-        protected override void OnUpdate() { }
+        protected override void OnUpdate()
+        {
+            BlueprintSpawnProbe.Update();
+        }
 
         protected override void OnPostActivate(KitchenMods.Mod mod)
         {
